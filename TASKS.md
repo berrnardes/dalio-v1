@@ -73,7 +73,7 @@ Regra: fases em ordem (sequenciadas por risco — ver DOCUMENTO-EXECUTIVO §7 e 
 
 ## Fase 7 — Endurecimento para o beta
 
-- [ ] Deploy Hetzner (Coolify/Kamal) + Vercel + Supabase prod; backups/PITR verificados
+- [ ] Deploy Hetzner (Coolify/Kamal) + Vercel; Postgres prod auto-hospedado com pgBackRest/WAL-G → Hetzner Storage Box; **restore de PITR ensaiado de verdade, não só configurado**
 - [ ] Sentry, Bull Board, health checks, alertas de sessão
 - [ ] LGPD: captura de consentimento, exclusão de dados, DPA + ToS (revisão jurídica externa)
 - [ ] Checklist de onboarding por clínica (redirect na bio, anúncios, treino do inbox, catálogo) — clínica só ativa com checklist verde

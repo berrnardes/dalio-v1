@@ -32,7 +32,7 @@ Ambos compartilham uma camada de conversas, uma camada de configuração por cl�
 | Camada | Tecnologias |
 |---|---|
 | Backend | NestJS (Node.js), LangChain/LangGraph, Better-auth, BullMQ, Drizzle ORM |
-| Banco de dados | PostgreSQL (Supabase, região `eu-central-1` alinhada com a Hetzner) |
+| Banco de dados | PostgreSQL auto-hospedado na Hetzner (container com volume dedicado; backups WAL contínuos + PITR próprios) |
 | Fila / cache | Redis (requisito do BullMQ — **incluir na infraestrutura desde o dia um**) |
 | Canal WhatsApp | WAHA (canal permanente) com chips fornecidos pela empresa; API oficial mantida como seguro/hedge |
 | Frontend | Next.js/React, shadcn/ui, react-query, axios, Better-auth |
@@ -155,7 +155,7 @@ Serviços de "antiban" vendem majoritariamente o que deve viver no próprio pipe
 - Métricas em R$ no dashboard desde o dia um — é o argumento de renovação.
 - Abstração de provedor como seguro (intenções estruturadas, templates, janela de 24h modelada) — ~1 semana de custo que compra a saída de emergência caso uma onda de banimento da Meta force a migração.
 
-**Infra do beta:** um único servidor Hetzner (CPX41/CCX23) com Docker Compose roda API + workers + Redis confortavelmente; containers WAHA separados do app (crash de sessão não derruba o produto); Supabase em Frankfurt (`eu-central-1`, ~5ms da Hetzner) via Supavisor em transaction mode com `prepare: false` no Drizzle; deploy via GitHub Actions → GHCR → Coolify ou Kamal.
+**Infra do beta:** um único servidor Hetzner (CPX41/CCX23) com Docker Compose roda API + workers + Redis confortavelmente; containers WAHA separados do app (crash de sessão não derruba o produto); Postgres auto-hospedado no mesmo host (container com volume dedicado, conexão direta do Drizzle — pgBouncer só quando houver necessidade real) com **backups WAL contínuos (pgBackRest/WAL-G) para um Hetzner Storage Box e restore de PITR ensaiado — responsabilidade nossa, não de um provedor gerenciado**; deploy via GitHub Actions → GHCR → Coolify ou Kamal.
 
 ---
 

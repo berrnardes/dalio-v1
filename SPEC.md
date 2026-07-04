@@ -28,7 +28,7 @@ apps/web        Next.js — dashboard das clínicas
 packages/shared Tipos canônicos: eventos, intents, enums (fonte única API↔web)
 ```
 
-Deploy: `apps/api` → Docker/Hetzner · `apps/web` → Vercel · Postgres → Supabase (eu-central-1) · Redis → container no host Hetzner.
+Deploy: `apps/api` → Docker/Hetzner · `apps/web` → Vercel · Postgres → auto-hospedado na Hetzner (container, volume dedicado, backups WAL/PITR via pgBackRest → Hetzner Storage Box) · Redis → container no host Hetzner.
 Dev local: `docker-compose.dev.yml` com Postgres, Redis e WAHA (NOWEB).
 
 ---
