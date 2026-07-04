@@ -1,8 +1,10 @@
 import { Controller, Get, Inject } from '@nestjs/common';
+import { AllowAnonymous } from '@thallesp/nestjs-better-auth';
 import { sql } from 'drizzle-orm';
 import { DB } from '../db/db.module';
 import type { Db } from '../db/db.module';
 
+@AllowAnonymous()
 @Controller('health')
 export class HealthController {
   constructor(@Inject(DB) private readonly db: Db) {}

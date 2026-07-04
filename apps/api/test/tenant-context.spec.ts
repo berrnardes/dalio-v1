@@ -33,4 +33,23 @@ describe('TenantContextService', () => {
     ctx.run({ clinicId: 'clinic-1', userId: 'u' }, () => undefined);
     expect(ctx.get()).toBeUndefined();
   });
+
+  it('supports the middleware+guard pattern: set() fills an open store for later readers', async () => {
+    // Mirrors HTTP flow: middleware opens empty store around the whole chain;
+    // the guard (a separate async step) fills it; the controller reads it.
+    const ctx = new TenantContextService();
+    const clinicId = await ctx.runEmpty(async () => {
+      expect(ctx.get()).toBeUndefined(); // open but unfilled
+      await Promise.resolve(); // async boundary, as between guard and handler
+      ctx.set({ clinicId: 'clinic-1', userId: 'u' });
+      await Promise.resolve();
+      return ctx.requireClinicId();
+    });
+    expect(clinicId).toBe('clinic-1');
+  });
+
+  it('set() outside an open store throws (middleware missing)', () => {
+    const ctx = new TenantContextService();
+    expect(() => ctx.set({ clinicId: 'c', userId: 'u' })).toThrow(/TenantContextMiddleware/);
+  });
 });

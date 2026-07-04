@@ -41,4 +41,9 @@ Node via nvm (`nvm use` — .nvmrc pins v24). Copy `.env.example` → `.env` onc
 - `pnpm lint` · `pnpm typecheck` · `pnpm test`
 - `pnpm db:generate` · `pnpm db:migrate` · `pnpm db:seed` (idempotent; login owner@dalio.dev / dalio-dev-123)
 
-Gotchas: eslint's `consistent-type-imports` is off in `apps/api` on purpose (Nest DI needs value imports for decorator metadata — `import type` on injected classes breaks DI silently). `express` must stay a direct api dependency (`main.ts` imports `json` from it).
+Gotchas:
+
+- eslint's `consistent-type-imports` is off in `apps/api` on purpose (Nest DI needs value imports for decorator metadata — `import type` on injected classes breaks DI silently).
+- Auth integration is `@thallesp/nestjs-better-auth` with `disableGlobalAuthGuard: true`: AuthGuard and TenantGuard are registered explicitly in AppModule's providers array because APP_GUARD ordering across imported dynamic modules is not deterministic, and TenantGuard reads the `request.session` AuthGuard attaches. Routes are authenticated by default — opt out with `@AllowAnonymous()`.
+- Tenant ALS pattern: TenantContextMiddleware opens an empty store (`runEmpty`), TenantGuard fills it (`set`). A guard cannot `enterWith()` its own store — it dies when the guard's async frame returns. Workers use `run()` with the job's clinicId.
+- The auth module re-adds body parsers with `req.rawBody` enabled — the Phase 1 webhook HMAC must use `req.rawBody`, and `NestFactory.create` must keep `bodyParser: false`.

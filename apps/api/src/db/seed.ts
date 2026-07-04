@@ -29,7 +29,7 @@ async function main() {
 
   // Create the auth user through better-auth so the password hash is correct.
   const { ConfigService } = await import('@nestjs/config');
-  const { createAuth } = await import('../auth/auth.module');
+  const { createAuth } = await import('../auth/auth');
   const configService = new ConfigService(process.env as Record<string, unknown>);
   const auth = createAuth(db, configService);
 

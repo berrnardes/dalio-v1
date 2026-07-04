@@ -1,36 +1,32 @@
-import { Global, Module } from '@nestjs/common';
+import { Module } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { betterAuth } from 'better-auth';
-import { drizzleAdapter } from 'better-auth/adapters/drizzle';
-import { organization } from 'better-auth/plugins';
+import { AuthModule as BetterAuthModule } from '@thallesp/nestjs-better-auth';
 import { DB } from '../db/db.module';
 import type { Db } from '../db/db.module';
-import * as authSchema from '../db/schema/auth';
+import { createAuth } from './auth';
 
-export const AUTH = Symbol('AUTH');
-
-export function createAuth(db: Db, config: ConfigService) {
-  return betterAuth({
-    database: drizzleAdapter(db, { provider: 'pg', schema: authSchema }),
-    secret: config.getOrThrow<string>('BETTER_AUTH_SECRET'),
-    baseURL: config.getOrThrow<string>('BETTER_AUTH_URL'),
-    trustedOrigins: [config.getOrThrow<string>('WEB_ORIGIN')],
-    emailAndPassword: { enabled: true },
-    plugins: [organization()],
-  });
-}
-
-export type Auth = ReturnType<typeof createAuth>;
-
-@Global()
+/**
+ * Wraps @thallesp/nestjs-better-auth: mounts the better-auth handler and
+ * re-adds body parsers with req.rawBody enabled (the WAHA webhook HMAC
+ * check needs the raw payload).
+ *
+ * The library's global AuthGuard is disabled here and registered explicitly
+ * in AppModule instead: APP_GUARD ordering across imported dynamic modules
+ * is not deterministic, and TenantGuard must run AFTER AuthGuard (it reads
+ * request.session). Both guards live in AppModule's providers array, where
+ * order is guaranteed.
+ */
 @Module({
-  providers: [
-    {
-      provide: AUTH,
-      useFactory: (db: Db, config: ConfigService) => createAuth(db, config),
+  imports: [
+    BetterAuthModule.forRootAsync({
+      isGlobal: true,
+      disableGlobalAuthGuard: true,
+      useFactory: (db: Db, config: ConfigService) => ({
+        auth: createAuth(db, config),
+        bodyParser: { rawBody: true },
+      }),
       inject: [DB, ConfigService],
-    },
+    }),
   ],
-  exports: [AUTH],
 })
 export class AuthModule {}

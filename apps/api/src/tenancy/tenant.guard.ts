@@ -4,30 +4,35 @@ import {
   Injectable,
   UnauthorizedException,
 } from '@nestjs/common';
-import type { NestMiddleware } from '@nestjs/common';
-import type { NextFunction, Request, Response } from 'express';
-import { fromNodeHeaders } from 'better-auth/node';
+import type { CanActivate, ExecutionContext } from '@nestjs/common';
+import type { Request } from 'express';
+import type { UserSession } from '@thallesp/nestjs-better-auth';
 import { eq } from 'drizzle-orm';
-import { AUTH } from '../auth/auth.module';
-import type { Auth } from '../auth/auth.module';
 import { DB } from '../db/db.module';
 import type { Db } from '../db/db.module';
 import { clinics } from '../db/schema';
 import { TenantContextService } from './tenant-context.service';
 
-/** Applied to /api/v1/* — resolves session → active organization → clinic. */
+/**
+ * Runs after the library's global AuthGuard (which attaches request.session)
+ * and, for /api/v1/* routes, resolves active organization → clinic into the
+ * tenant AsyncLocalStorage context. Non-tenant routes (health, webhooks,
+ * /api/auth) pass through untouched.
+ */
 @Injectable()
-export class TenantMiddleware implements NestMiddleware {
+export class TenantGuard implements CanActivate {
   constructor(
-    @Inject(AUTH) private readonly auth: Auth,
     @Inject(DB) private readonly db: Db,
     private readonly tenantContext: TenantContextService,
   ) {}
 
-  async use(req: Request, _res: Response, next: NextFunction) {
-    const session = await this.auth.api.getSession({
-      headers: fromNodeHeaders(req.headers),
-    });
+  async canActivate(context: ExecutionContext): Promise<boolean> {
+    const req = context
+      .switchToHttp()
+      .getRequest<Request & { session?: UserSession }>();
+    if (!req.path.startsWith('/api/v1/')) return true;
+
+    const session = req.session;
     if (!session) throw new UnauthorizedException();
 
     const orgId = session.session.activeOrganizationId;
@@ -41,6 +46,7 @@ export class TenantMiddleware implements NestMiddleware {
     if (!clinic) throw new ForbiddenException('Clinic not found for active organization');
     if (clinic.status !== 'active') throw new ForbiddenException('Clinic is suspended');
 
-    this.tenantContext.run({ clinicId: clinic.id, userId: session.user.id }, () => next());
+    this.tenantContext.set({ clinicId: clinic.id, userId: session.user.id });
+    return true;
   }
 }
