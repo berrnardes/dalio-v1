@@ -5,17 +5,17 @@ Regra: fases em ordem (sequenciadas por risco — ver DOCUMENTO-EXECUTIVO §7 e 
 
 ---
 
-## Fase 0 — Fundações
+## Fase 0 — Fundações ✅ (2026-07-04)
 
-- [ ] Monorepo pnpm (`apps/api`, `apps/web`, `packages/shared`) + TypeScript estrito + ESLint/Prettier
-- [ ] `docker-compose.dev.yml`: Postgres, Redis, WAHA (NOWEB)
-- [ ] NestJS scaffold + config por env validada (zod)
-- [ ] Drizzle: schema completo do SPEC §3 + migrations + seed de dev (1 clínica, catálogo exemplo)
-- [ ] Better-auth com plugin de organizações; ponte `clinics.authOrgId`; middleware de tenant-context
-- [ ] Repositórios tenant-scoped (base) — a regra de ferro nº 1 vira código
-- [ ] `packages/shared`: `InboundMessageEvent`, `OutboundIntent`, enums
-- [ ] CI: lint + typecheck + testes em PR
-- [ ] Preencher seção Commands do CLAUDE.md
+- [x] Monorepo pnpm (`apps/api`, `apps/web`, `packages/shared`) + TypeScript estrito + ESLint/Prettier
+- [x] `docker-compose.dev.yml`: Postgres (porta 5433 no host), Redis, WAHA (NOWEB, atrás de profile)
+- [x] NestJS scaffold + config por env validada (zod) — app recusa boot com env inválido
+- [x] Drizzle: schema completo do SPEC §3 + migration `0000` aplicada + seed de dev idempotente
+- [x] Better-auth com plugin de organizações; ponte `clinics.authOrgId`; TenantMiddleware (E2E verificado: 401 sem sessão, dados scoped com sessão)
+- [x] Repositórios tenant-scoped (base + ServicesRepository de exemplo; testes do TenantContext)
+- [x] `packages/shared`: `InboundMessageEvent`, `OutboundIntent`, enums (pgEnums derivam daqui)
+- [x] CI: lint + typecheck + testes em PR
+- [x] Preencher seção Commands do CLAUDE.md
 
 ## Fase 1 — Pipeline de mensagens (o coração; gate: testes de tempestade verdes)
 

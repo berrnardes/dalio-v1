@@ -33,4 +33,12 @@ pnpm monorepo: `apps/api` (NestJS + BullMQ + Drizzle + LangGraph), `apps/web` (N
 
 ## Commands
 
-(placeholder — fill in as tooling lands in Phase 0: `pnpm dev`, `pnpm test`, `pnpm db:migrate`, `docker compose -f docker-compose.dev.yml up`)
+Node via nvm (`nvm use` — .nvmrc pins v24). Copy `.env.example` → `.env` once.
+
+- `docker compose -f docker-compose.dev.yml up -d` — Postgres (host port **5433** — 5432 is taken by an unrelated container), Redis. Add `--profile waha` for WAHA.
+- `pnpm install` · `pnpm -r build` (shared must be built before running the api)
+- `pnpm dev` — containers + api (:3000) + web (:3100)
+- `pnpm lint` · `pnpm typecheck` · `pnpm test`
+- `pnpm db:generate` · `pnpm db:migrate` · `pnpm db:seed` (idempotent; login owner@dalio.dev / dalio-dev-123)
+
+Gotchas: eslint's `consistent-type-imports` is off in `apps/api` on purpose (Nest DI needs value imports for decorator metadata — `import type` on injected classes breaks DI silently). `express` must stay a direct api dependency (`main.ts` imports `json` from it).

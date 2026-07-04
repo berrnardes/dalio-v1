@@ -1,0 +1,47 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: dalio
+      POSTGRES_PASSWORD: dalio
+      POSTGRES_DB: dalio
+    ports:
+      # 5433 on the host: 5432 is taken by a pre-existing postgres-db container
+      - '5433:5432'
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U dalio']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    command: redis-server --appendonly yes
+    ports:
+      - '6379:6379'
+    volumes:
+      - redisdata:/data
+
+  # Start with: docker compose -f docker-compose.dev.yml --profile waha up -d
+  # Kept behind a profile so day-to-day dev doesn't need a WhatsApp session.
+  waha:
+    image: devlikeapro/waha:latest
+    profiles: ['waha']
+    environment:
+      WHATSAPP_DEFAULT_ENGINE: NOWEB
+      WAHA_API_KEY: ${WAHA_API_KEY:-dev-waha-key}
+      WHATSAPP_HOOK_URL: http://host.docker.internal:3000/webhooks/waha
+      WHATSAPP_HOOK_EVENTS: message,session.status
+    extra_hosts:
+      - 'host.docker.internal:host-gateway'
+    ports:
+      - '3001:3000'
+    volumes:
+      - wahadata:/app/.sessions
+
+volumes:
+  pgdata:
+  redisdata:
+  wahadata:
