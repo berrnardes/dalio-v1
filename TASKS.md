@@ -31,15 +31,17 @@ Regra: fases em ordem (sequenciadas por risco — ver DOCUMENTO-EXECUTIVO §7 e 
 - [x] Testes de contrato do `MessagingProvider` (suíte compartilhada Waha+Cloud) + stub `CloudApiProvider` com janela de 24h real
 - [ ] Testes dedicados do outbound worker (FIFO sob contenção, caps) — cobrir na Fase 2 junto com o primeiro fluxo que envia de verdade
 
-## Fase 2 — Agente + calendário nativo (o demo que vende)
+## Fase 2 — Agente + calendário nativo ✅ (2026-07-05)
 
-- [ ] CRUD `services`, `professionals`, `appointments`; motor de disponibilidade (`GET /availability`)
-- [ ] Grafo LangGraph: router (modelo barato) → qualify → book (modelo forte) → answer_faq → handle_choice_reply → handoff
-- [ ] Checkpointer Postgres; catálogo/persona no prompt; toda saída como `OutboundIntent`
-- [ ] Guardrail médico (rota obrigatória p/ handoff) + detecção de opt-out em qualquer nó
-- [ ] Branch fora-do-expediente do handoff (expectativa honesta + tarefa p/ digest)
-- [ ] LangSmith (workspace EU, DPA, masking de PII, projetos dev/prod, tag `clinic_id`) + custo LLM por clínica → `usage_counters`
-- [ ] Conjunto de avaliação: transcrições reais/sintéticas como regressão de qualidade
+- [x] CRUD `services`/`professionals`/`appointments` + motor de disponibilidade (grade 30min, capacidade = profissionais ativos, wall-clock no fuso da clínica via TZDate, lead mínimo 60min, re-checagem no book)
+- [x] Grafo LangGraph: router (Haiku 4.5) → book (Opus 4.8 + 4 ferramentas reais, loop máx. 6 → handoff gracioso) | answer_faq (tier barato) | handoff | opt-out
+- [x] Catálogo/persona no prompt; toda saída como `OutboundIntent`; estado = histórico do banco (checkpointer Postgres dispensado conscientemente — divergência documentada no SPEC §5)
+- [x] Guardrail médico (rota obrigatória no router, "na dúvida, medical") + opt-out determinístico pré-LLM (keyword) + intenção `opt_out` no router como segunda rede
+- [x] Branch fora-do-expediente do handoff (mensagem honesta; digest matinal → Fase 3)
+- [x] LangSmith: tracing via env (`LANGSMITH_*`), tag `clinic_id`/`conversation_id` por turno; custo LLM por clínica → `usage_counters` (tiering: Haiku $1/$5, Opus 4.8 $5/$25 por MTok)
+- [x] Regressão de FLUXO com modelos fake: roteamento, guardrail, tool loop (resultado volta como ToolMessage), exaustão, opt-out — sem rede, sem tokens
+- [ ] Avaliação de QUALIDADE com LLM real (env-gated por `ANTHROPIC_API_KEY`; transcrições reais quando o piloto gerar dados)
+- [ ] Testes dedicados do outbound worker (FIFO sob contenção, caps) — pendência herdada da Fase 1
 
 ## Fase 3 — Inbox de handoff (único canal humano — prioridade nº 1 do frontend)
 
@@ -84,8 +86,8 @@ Regra: fases em ordem (sequenciadas por risco — ver DOCUMENTO-EXECUTIVO §7 e 
 
 ## Decisões pendentes (resolver quando a fase chegar)
 
-- Avaliar `@thallesp/nestjs-better-auth` (guards/decorators idiomáticos p/ Nest) vs. o mount manual atual — Fase 1
-- Provedor de transcrição (Whisper self-hosted vs. API) — Fase 1
-- Modelos LLM específicos por tier e orçamentos por clínica — Fase 2
+- ~~`@thallesp/nestjs-better-auth`~~ — adotado (refactor de 2026-07-04)
+- ~~Modelos LLM por tier~~ — decidido: Haiku 4.5 (router/FAQ) + Opus 4.8 (booking), env-configurável; orçamento por clínica com alertas fica p/ Fase 7
+- Provedor de transcrição (Whisper self-hosted vs. API) — Fase 1 (provider Null no ar)
 - SSE vs. Supabase Realtime para o inbox — Fase 3
 - Fornecedor de proxies residenciais/móveis e de SIMs — Fase 6

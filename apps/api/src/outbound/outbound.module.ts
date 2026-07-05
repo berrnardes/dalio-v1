@@ -3,7 +3,7 @@
 // feature uses to send (iron rules #2 and #4 are structural here).
 import { Module } from '@nestjs/common';
 import { ChannelsModule } from '../channels/channels.module';
-import { ConversationsModule } from '../conversations/conversations.module';
+import { MessagingDataModule } from '../conversations/messaging-data.module';
 import { CanContactService } from './can-contact.service';
 import { OutboundWorker } from './outbound.worker';
 import { OutboxService } from './outbox.service';
@@ -11,7 +11,9 @@ import { TemplateRenderService } from './template-render.service';
 import { TemplatesRepository } from './templates.repository';
 
 @Module({
-  imports: [ChannelsModule, ConversationsModule],
+  // MessagingDataModule (not ConversationsModule): keeps the module graph
+  // acyclic now that ConversationsModule imports AgentModule → OutboundModule.
+  imports: [ChannelsModule, MessagingDataModule],
   providers: [
     OutboxService,
     OutboundWorker,

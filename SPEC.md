@@ -309,11 +309,17 @@ Suíte de testes de contrato compartilhada; `CloudApiProvider` fica como stub qu
 
 ---
 
-## 5. Grafo do agente (resumo — design detalhado na Fase 2)
+## 5. Grafo do agente (implementado na Fase 2)
 
-`router` (modelo barato) → { `qualify` → `book` (modelo forte, disponibilidade real) | `answer_faq` | `handle_choice_reply` | `handoff` }.
+`router` (`AGENT_ROUTER_MODEL`, default `claude-haiku-4-5` — $1/$5 MTok) classifica em `booking | faq | medical | human | opt_out | smalltalk` →
+- **`book`** (`AGENT_BOOKING_MODEL`, default `claude-opus-4-8` — $5/$25): loop de ferramentas hand-rolled (máx. 6 rodadas; exaustão → handoff gracioso) com `get_available_slots`, `book_appointment` (re-checa disponibilidade na hora — oferta pode estar obsoleta), `get_my_appointments`, `cancel_appointment`. Ferramentas são closures sobre o contato/clínica do turno — o LLM não consegue agendar cross-tenant.
+- **`answer`** (FAQ/smalltalk no tier barato — catálogo no prompt, sem RAG).
+- **`handoff`** (`medical`/`human`/exaustão): pausa a conversa 8h (`pausedUntil`) + mensagem honesta dentro/fora do expediente (digest matinal: Fase 3).
+- **`optout`**: grava `contacts.optOutAt` + confirmação.
 
-Regras invioláveis: nunca aconselhamento médico/clínico (→ `handoff`); fora do expediente o `handoff` vira expectativa honesta + tarefa p/ digest matinal; catálogo/persona da clínica injetados no prompt (sem RAG); checkpointer Postgres; toda resposta sai como `OutboundIntent`; opt-out detectado em qualquer nó grava `contacts.optOutAt` imediatamente.
+Regras invioláveis: nunca aconselhamento médico (rota obrigatória no router + regra no prompt); toda resposta sai como `OutboundIntent` via outbox; **opt-out determinístico por palavra-chave roda ANTES de qualquer LLM** (LGPD não depende de modelo); turno é pulado se `pausedUntil` futuro (humano é dono da thread); custo/token de cada chamada → `usage_counters` (via `AGENT_MODELS`); traces LangSmith com metadata `clinic_id`/`conversation_id`.
+
+**Divergência consciente vs. o plano original:** sem checkpointer Postgres do LangGraph. Turnos rodam até o fim (sem interrupts), então o estado durável é a tabela `messages` (histórico, últimas 20) + `flowContext` — um checkpointer duplicaria isso sem ganho. Volta ao plano se interrupts/HITL dentro de turno surgirem.
 
 ---
 

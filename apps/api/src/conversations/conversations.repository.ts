@@ -1,7 +1,7 @@
 // Conversations + messages persistence for the pipeline. Tenant-scoped
 // (iron rule #1); workers open the tenant scope from the job payload.
 import { Injectable } from '@nestjs/common';
-import { and, asc, eq } from 'drizzle-orm';
+import { and, asc, desc, eq, notInArray } from 'drizzle-orm';
 import type { InboundContent, MessageKind } from '@dalio/shared';
 import { conversations, messages } from '../db/schema';
 import { TenantScopedRepository } from '../tenancy/tenant-scoped.repository';
@@ -55,6 +55,39 @@ export class ConversationsRepository extends TenantScopedRepository {
       .where(and(eq(conversations.clinicId, this.clinicId), eq(conversations.id, id)))
       .limit(1);
     return row ?? null;
+  }
+
+  /**
+   * Conversation history for the agent's context window, oldest-first.
+   * `excludeIds` drops the current burst (already persisted by the inbound
+   * worker) so it isn't duplicated as both history and the new user turn.
+   */
+  async listRecentMessages(
+    conversationId: string,
+    excludeIds: string[],
+    limit = 20,
+  ): Promise<MessageRow[]> {
+    const rows = await this.db
+      .select()
+      .from(messages)
+      .where(
+        and(
+          eq(messages.clinicId, this.clinicId),
+          eq(messages.conversationId, conversationId),
+          excludeIds.length > 0 ? notInArray(messages.id, excludeIds) : undefined,
+        ),
+      )
+      .orderBy(desc(messages.id)) // uuidv7 = time-ordered
+      .limit(limit);
+    return rows.reverse();
+  }
+
+  /** Human takeover / handoff: the agent stays silent until `until` passes. */
+  async pause(conversationId: string, until: Date, byUserId: string): Promise<void> {
+    await this.db
+      .update(conversations)
+      .set({ pausedUntil: until, pausedByUserId: byUserId })
+      .where(and(eq(conversations.clinicId, this.clinicId), eq(conversations.id, conversationId)));
   }
 
   async touchLastInbound(conversationId: string, at: Date): Promise<void> {

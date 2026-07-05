@@ -14,6 +14,12 @@ export const envSchema = z.object({
   WAHA_BASE_URL: z.string().min(1).optional(),
   WAHA_API_KEY: z.string().min(1).optional(),
   WAHA_WEBHOOK_HMAC_SECRET: z.string().min(1).optional(),
+
+  // Agent (Phase 2). Key optional: without it the agent degrades to
+  // observe-only (dev/storm tests). Model tiering per SPEC §5.
+  ANTHROPIC_API_KEY: z.string().min(1).optional(),
+  AGENT_ROUTER_MODEL: z.string().min(1).default('claude-haiku-4-5'),
+  AGENT_BOOKING_MODEL: z.string().min(1).default('claude-opus-4-8'),
 });
 
 export type Env = z.infer<typeof envSchema>;

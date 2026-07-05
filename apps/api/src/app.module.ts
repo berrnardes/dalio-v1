@@ -3,6 +3,7 @@ import type { MiddlewareConsumer, NestModule } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
 import { ConfigModule } from '@nestjs/config';
 import { AuthGuard } from '@thallesp/nestjs-better-auth';
+import { AgentModule } from './agent/agent.module';
 import { AuthModule } from './auth/auth.module';
 import { CatalogModule } from './catalog/catalog.module';
 import { ChannelsModule } from './channels/channels.module';
@@ -12,6 +13,7 @@ import { DbModule } from './db/db.module';
 import { HealthController } from './health/health.controller';
 import { OutboundModule } from './outbound/outbound.module';
 import { QueuesModule } from './queues/queues.module';
+import { SchedulingModule } from './scheduling/scheduling.module';
 import { TenancyModule } from './tenancy/tenancy.module';
 import { TenantContextMiddleware } from './tenancy/tenant-context.middleware';
 import { TenantGuard } from './tenancy/tenant.guard';
@@ -33,6 +35,8 @@ import { TranscriptionModule } from './transcription/transcription.module';
     OutboundModule,
     TranscriptionModule,
     CatalogModule,
+    SchedulingModule,
+    AgentModule,
   ],
   controllers: [HealthController],
   providers: [

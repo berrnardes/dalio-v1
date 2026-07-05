@@ -5,5 +5,6 @@ import { ServicesRepository } from './services.repository';
 @Module({
   controllers: [CatalogController],
   providers: [ServicesRepository],
+  exports: [ServicesRepository], // agent prompt builder reads the catalog
 })
 export class CatalogModule {}

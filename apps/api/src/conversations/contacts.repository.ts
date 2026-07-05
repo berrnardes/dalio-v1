@@ -36,4 +36,12 @@ export class ContactsRepository extends TenantScopedRepository {
       .limit(1);
     return row ?? null;
   }
+
+  /** Mechanical LGPD opt-out (iron rule #4) — every proactive send checks this stamp. */
+  async setOptOut(id: string): Promise<void> {
+    await this.db
+      .update(contacts)
+      .set({ optOutAt: new Date() })
+      .where(and(eq(contacts.clinicId, this.clinicId), eq(contacts.id, id)));
+  }
 }
