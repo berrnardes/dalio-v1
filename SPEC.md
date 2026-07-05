@@ -357,7 +357,7 @@ Tempo real do inbox: SSE (`GET /conversations/stream`) no v1; WebSocket se preci
 
 ## 8. Observabilidade e dev
 
-- **Langfuse self-hosted** (LGPD) — trace de todo turno do agente, custo por clínica → `usage_counters`.
+- **LangSmith** (nativo do LangChain/LangGraph, zero-config via env `LANGSMITH_TRACING`/`LANGSMITH_API_KEY`) — trace de todo turno do agente; custo por clínica alimenta `usage_counters`. **LGPD:** workspace na região EU, DPA assinado com a LangChain Inc. e masking de PII configurado onde viável; a proibição de conteúdo de mensagem em logs de aplicação permanece — LangSmith é o único destino externo autorizado de traces. Projetos separados por ambiente (dev/prod) e tag `clinic_id` em todo trace para depurar por tenant.
 - Bull Board em rota interna autenticada; métrica de lag enqueue→processing como gauge de backpressure.
 - Sentry (api + web). Health: `GET /health` (DB, Redis, sessões WAHA conectadas vs. esperadas).
 - Testes: Vitest; **testes de tempestade do pipeline** (rajadas com jitter aleatório contra WAHA fake via Testcontainers) são o gate de merge das Fases 0–1.

@@ -37,7 +37,7 @@ Regra: fases em ordem (sequenciadas por risco — ver DOCUMENTO-EXECUTIVO §7 e 
 - [ ] Checkpointer Postgres; catálogo/persona no prompt; toda saída como `OutboundIntent`
 - [ ] Guardrail médico (rota obrigatória p/ handoff) + detecção de opt-out em qualquer nó
 - [ ] Branch fora-do-expediente do handoff (expectativa honesta + tarefa p/ digest)
-- [ ] Langfuse self-hosted + custo LLM por clínica → `usage_counters`
+- [ ] LangSmith (workspace EU, DPA, masking de PII, projetos dev/prod, tag `clinic_id`) + custo LLM por clínica → `usage_counters`
 - [ ] Conjunto de avaliação: transcrições reais/sintéticas como regressão de qualidade
 
 ## Fase 3 — Inbox de handoff (único canal humano — prioridade nº 1 do frontend)

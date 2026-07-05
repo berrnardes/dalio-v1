@@ -20,7 +20,7 @@ pnpm monorepo: `apps/api` (NestJS + BullMQ + Drizzle + LangGraph), `apps/web` (N
 4. **Every outbound send passes the `canContact()` gate** (opt-out, consent, per-contact frequency). Opt-out detection writes `contacts.optOutAt` immediately, in any flow.
 5. **The agent never gives medical/clinical advice** — such messages route to handoff. Non-negotiable guardrail in the router.
 6. **Rate limits and anti-ban policy live in `channels.ratePolicy` / `numbers.dailyQuota`** — never global constants. Humanized jitter and send windows on all proactive outbound.
-7. **No message content in application logs.** Content lives in Postgres and self-hosted Langfuse only (LGPD — conversations contain sensitive health data).
+7. **No message content in application logs.** Content lives in Postgres and LangSmith traces only — LangSmith is the sole authorized external trace destination (EU-region workspace + DPA + PII masking; conversations contain LGPD-sensitive health data).
 8. **Contact identity is the E.164 phone per clinic**, never provider IDs. `providerMessageId` is stored alongside our IDs, never used as one.
 
 ## Code documentation (required per feature — SPEC §6.1)

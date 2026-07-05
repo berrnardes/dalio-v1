@@ -37,7 +37,7 @@ Ambos compartilham uma camada de conversas, uma camada de configuração por cl�
 | Canal WhatsApp | WAHA (canal permanente) com chips fornecidos pela empresa; API oficial mantida como seguro/hedge |
 | Frontend | Next.js/React, shadcn/ui, react-query, axios, Better-auth |
 | Infraestrutura | Docker · Hetzner (backend) · Vercel (frontend) · GitHub Actions (CI/CD) |
-| Observabilidade | Langfuse (traces de LLM), Bull Board (filas), Sentry, monitor de saúde de sessões WAHA |
+| Observabilidade | LangSmith (traces de LLM — nativo do LangGraph; workspace região EU + DPA + masking p/ LGPD), Bull Board (filas), Sentry, monitor de saúde de sessões WAHA |
 
 ### 2.2 Arquitetura: monólito modular multi-tenant
 
@@ -150,7 +150,7 @@ Serviços de "antiban" vendem majoritariamente o que deve viver no próprio pipe
 - O trio do pipeline (idempotência + debounce + lock) completo — clínicas reais o exercitam na primeira semana.
 - Handoff humano com inbox ao vivo no dashboard — com o número dedicado da empresa, o inbox é o **único** canal humano da clínica; a qualidade dele decide a adoção.
 - Links de redirecionamento próprios desde o primeiro cliente (nunca publicar número cru) e pelo menos 1–2 números pré-aquecidos em standby antes de ativar campanhas.
-- Observabilidade: Langfuse (será preciso responder "por que o bot disse isso?" a donos de clínica irritados), monitor de sessões WAHA com alerta de queda/re-pareamento (o incidente operacional nº 1 em produtos WAHA), Bull Board, lag de enfileiramento como métrica de backpressure.
+- Observabilidade: LangSmith com workspace na região EU, DPA assinado e política de masking de PII (será preciso responder "por que o bot disse isso?" a donos de clínica irritados), monitor de sessões WAHA com alerta de queda/re-pareamento (o incidente operacional nº 1 em produtos WAHA), Bull Board, lag de enfileiramento como métrica de backpressure.
 - LGPD: captura de consentimento no primeiro contato, opt-out mecânico no pipeline, suporte a exclusão de dados.
 - Métricas em R$ no dashboard desde o dia um — é o argumento de renovação.
 - Abstração de provedor como seguro (intenções estruturadas, templates, janela de 24h modelada) — ~1 semana de custo que compra a saída de emergência caso uma onda de banimento da Meta force a migração.
@@ -182,7 +182,7 @@ Serviços de "antiban" vendem majoritariamente o que deve viver no próprio pipe
 | Banimento de número individual | Média (incidente operacional) | Chip da empresa (número da clínica nunca em risco) + pool de standby aquecido + links de redirect próprios + protocolo de retomada proativa |
 | Onda de banimento em massa (detecção do cliente não-oficial pela Meta) | Alta (risco de cauda — atinge a frota inteira) | Abstração de provedor como saída de emergência; números canário; engines pinadas com rollout escalonado; monitorar upstream WAHA/Baileys |
 | Sessão WAHA caindo (re-pareamento QR) | Média (incidente op. nº 1) | Pareamento centralizado na empresa + monitor de saúde + auto-restart |
-| Custo LLM descontrolado | Média | Tiering + orçamento por tenant + Langfuse |
+| Custo LLM descontrolado | Média | Tiering + orçamento por tenant + traces LangSmith |
 | Clínica não adota o inbox do dashboard | Alta (é o único canal humano) | UX do inbox como prioridade nº 1 do frontend; digest matinal; notificações |
 | Conselho médico pelo agente | Alta (responsabilidade) | Guardrail rígido de escalação em temas clínicos |
 | LGPD (campanhas a dados pessoais) | Média | Consentimento + opt-out mecânico + exclusão |
