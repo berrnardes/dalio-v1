@@ -5,12 +5,17 @@ import { ConfigModule } from '@nestjs/config';
 import { AuthGuard } from '@thallesp/nestjs-better-auth';
 import { AuthModule } from './auth/auth.module';
 import { CatalogModule } from './catalog/catalog.module';
+import { ChannelsModule } from './channels/channels.module';
 import { validateEnv } from './config/env';
+import { ConversationsModule } from './conversations/conversations.module';
 import { DbModule } from './db/db.module';
 import { HealthController } from './health/health.controller';
+import { OutboundModule } from './outbound/outbound.module';
+import { QueuesModule } from './queues/queues.module';
 import { TenancyModule } from './tenancy/tenancy.module';
 import { TenantContextMiddleware } from './tenancy/tenant-context.middleware';
 import { TenantGuard } from './tenancy/tenant.guard';
+import { TranscriptionModule } from './transcription/transcription.module';
 
 @Module({
   imports: [
@@ -22,6 +27,11 @@ import { TenantGuard } from './tenancy/tenant.guard';
     DbModule,
     AuthModule,
     TenancyModule,
+    QueuesModule,
+    ChannelsModule,
+    ConversationsModule,
+    OutboundModule,
+    TranscriptionModule,
     CatalogModule,
   ],
   controllers: [HealthController],

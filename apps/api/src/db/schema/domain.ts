@@ -11,6 +11,7 @@ import {
   text,
   timestamp,
   unique,
+  uniqueIndex,
   uuid,
 } from 'drizzle-orm/pg-core';
 import type { AnyPgColumn } from 'drizzle-orm/pg-core';
@@ -152,24 +153,36 @@ export const contacts = pgTable(
   (t) => [unique().on(t.clinicId, t.phone)],
 );
 
-export const conversations = pgTable('conversations', {
-  id: id(),
-  clinicId: uuid('clinic_id')
-    .references(() => clinics.id)
-    .notNull(),
-  contactId: uuid('contact_id')
-    .references(() => contacts.id)
-    .notNull(),
-  channelId: uuid('channel_id')
-    .references(() => channels.id)
-    .notNull(),
-  status: conversationStatus('status').default('open').notNull(),
-  pausedUntil: ts('paused_until'),
-  pausedByUserId: text('paused_by_user_id'),
-  flowContext: jsonb('flow_context').$type<FlowContext>(),
-  lastInboundAt: ts('last_inbound_at'),
-  lastOutboundAt: ts('last_outbound_at'),
-});
+export const conversations = pgTable(
+  'conversations',
+  {
+    id: id(),
+    clinicId: uuid('clinic_id')
+      .references(() => clinics.id)
+      .notNull(),
+    contactId: uuid('contact_id')
+      .references(() => contacts.id)
+      .notNull(),
+    channelId: uuid('channel_id')
+      .references(() => channels.id)
+      .notNull(),
+    status: conversationStatus('status').default('open').notNull(),
+    pausedUntil: ts('paused_until'),
+    pausedByUserId: text('paused_by_user_id'),
+    flowContext: jsonb('flow_context').$type<FlowContext>(),
+    lastInboundAt: ts('last_inbound_at'),
+    lastOutboundAt: ts('last_outbound_at'),
+  },
+  (t) => [
+    // Race guard: concurrent inbound workers for a brand-new contact must
+    // converge on ONE open conversation ("one contact, one conversation" —
+    // DOCUMENTO-EXECUTIVO §3.4). findOrCreateOpen relies on this index's
+    // conflict to detect the race and re-select.
+    uniqueIndex('conversations_open_unique')
+      .on(t.clinicId, t.contactId, t.channelId)
+      .where(sql`${t.status} = 'open'`),
+  ],
+);
 
 export const messages = pgTable(
   'messages',

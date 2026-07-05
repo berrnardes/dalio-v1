@@ -4,3 +4,7 @@ packages:
 allowBuilds:
   esbuild: true
   sharp: true
+# Single ioredis instance: bullmq bundles its own range and two resolved
+# versions make their TypeScript types (and Redis connections) incompatible.
+overrides:
+  ioredis: ^5.11.1

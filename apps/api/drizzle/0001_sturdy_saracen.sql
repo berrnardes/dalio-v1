@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX "conversations_open_unique" ON "conversations" USING btree ("clinic_id","contact_id","channel_id") WHERE "conversations"."status" = 'open';
