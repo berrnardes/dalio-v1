@@ -1,16 +1,14 @@
-// Scheduling module — the native calendar (SPEC §6). Native-first is a
-// product decision (DOCUMENTO-EXECUTIVO §4): clinics without a system are
-// the easiest customers; external calendar integrations come later.
+// Scheduling module — the native calendar's READ API (SPEC §7): availability,
+// appointment listing, professionals. Appointment WRITES (book/cancel/confirm/
+// no-show) moved to RemindersModule in Phase 4, where each write also drives
+// the reminder cadence and waitlist backfill (the anti-no-show engine).
 import { Module } from '@nestjs/common';
-import { AppointmentsRepository } from './appointments.repository';
-import { AvailabilityService } from './availability.service';
-import { ClinicsRepository } from './clinics.repository';
-import { ProfessionalsRepository } from './professionals.repository';
 import { SchedulingController } from './scheduling.controller';
+import { SchedulingDataModule } from './scheduling-data.module';
 
 @Module({
+  imports: [SchedulingDataModule],
   controllers: [SchedulingController],
-  providers: [ClinicsRepository, ProfessionalsRepository, AppointmentsRepository, AvailabilityService],
-  exports: [ClinicsRepository, ProfessionalsRepository, AppointmentsRepository, AvailabilityService],
+  exports: [SchedulingDataModule],
 })
 export class SchedulingModule {}

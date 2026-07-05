@@ -37,11 +37,17 @@ class FaqModels implements AgentModels {
   }
 }
 
-function makeHandler(opts: { supervised: boolean; history?: MessageRow[] }) {
+function makeHandler(opts: {
+  supervised?: boolean;
+  history?: MessageRow[];
+  flowContext?: unknown;
+}) {
   const calls = {
     drafts: [] as Array<Record<string, unknown>>,
     sends: [] as Array<Record<string, unknown>>,
     events: [] as Array<Record<string, unknown>>,
+    flowContexts: [] as unknown[],
+    lifecycle: [] as Array<{ op: string; appointmentId: string }>,
     optOuts: 0,
   };
   const models = new FaqModels();
@@ -55,14 +61,30 @@ function makeHandler(opts: { supervised: boolean; history?: MessageRow[] }) {
         channelId: 'channel-1',
         status: 'open',
         pausedUntil: null,
+        flowContext: opts.flowContext ?? null,
       }),
     listRecentMessages: () => Promise.resolve(opts.history ?? []),
     appendOutboundDraft: (params: Record<string, unknown>) => {
       calls.drafts.push(params);
       return Promise.resolve({ id: `draft-${calls.drafts.length}` });
     },
+    setFlowContext: (_id: string, flow: unknown) => {
+      calls.flowContexts.push(flow);
+      return Promise.resolve();
+    },
     pause: () => Promise.resolve(),
   } as unknown as ConversationsRepository;
+
+  const lifecycle = {
+    confirm: (appointmentId: string) => {
+      calls.lifecycle.push({ op: 'confirm', appointmentId });
+      return Promise.resolve(true);
+    },
+    cancel: (appointmentId: string) => {
+      calls.lifecycle.push({ op: 'cancel', appointmentId });
+      return Promise.resolve(true);
+    },
+  } as unknown as import('../src/reminders/appointment-lifecycle.service').AppointmentLifecycleService;
 
   const handler = new AgentTurnHandler(
     models,
@@ -80,12 +102,13 @@ function makeHandler(opts: { supervised: boolean; history?: MessageRow[] }) {
           id: 'clinic-1',
           name: 'Clínica Teste',
           timezone: 'America/Sao_Paulo',
-          settings: { supervisedMode: opts.supervised },
+          settings: { supervisedMode: opts.supervised ?? false },
         }),
     } as unknown as ClinicsRepository,
     { list: () => Promise.resolve([]) } as unknown as ServicesRepository,
     {} as AvailabilityService,
     {} as AppointmentsRepository,
+    lifecycle,
     {
       send: (params: Record<string, unknown>) => {
         calls.sends.push(params);
@@ -152,6 +175,54 @@ describe('supervised mode', () => {
     await handler.handleTurn(turn('quanto custa?'));
 
     expect(calls.drafts).toHaveLength(0);
+    expect(calls.sends).toHaveLength(1);
+  });
+});
+
+describe('confirmation replies (Phase 4)', () => {
+  const awaiting = {
+    kind: 'awaiting_confirmation',
+    appointmentId: 'appt-9',
+    options: [
+      { id: 'confirm', label: 'Confirmar' },
+      { id: 'reschedule', label: 'Remarcar' },
+      { id: 'cancel', label: 'Cancelar' },
+    ],
+  };
+
+  it('"1" confirms the appointment, clears the flag, acks — no LLM call', async () => {
+    const { handler, calls, models } = makeHandler({ flowContext: awaiting });
+    await handler.handleTurn(turn('1'));
+
+    expect(calls.lifecycle).toEqual([{ op: 'confirm', appointmentId: 'appt-9' }]);
+    expect(calls.flowContexts).toContainEqual({ kind: 'none' });
+    expect(calls.sends).toHaveLength(1);
+    expect(models.faqHistories).toHaveLength(0); // agent never ran
+  });
+
+  it('"cancelar" cancels the appointment (reminders/backfill via lifecycle)', async () => {
+    const { handler, calls } = makeHandler({ flowContext: awaiting });
+    await handler.handleTurn(turn('cancelar'));
+
+    expect(calls.lifecycle).toEqual([{ op: 'cancel', appointmentId: 'appt-9' }]);
+    expect(calls.sends).toHaveLength(1);
+  });
+
+  it('"2"/remarcar frees the slot then invites a new time', async () => {
+    const { handler, calls } = makeHandler({ flowContext: awaiting });
+    await handler.handleTurn(turn('2'));
+
+    expect(calls.lifecycle).toEqual([{ op: 'cancel', appointmentId: 'appt-9' }]);
+    expect(calls.sends).toHaveLength(1);
+  });
+
+  it('an unrelated reply clears the flag and falls through to the agent', async () => {
+    const { handler, calls, models } = makeHandler({ flowContext: awaiting });
+    await handler.handleTurn(turn('na verdade quanto custa a limpeza?'));
+
+    expect(calls.lifecycle).toHaveLength(0);
+    expect(calls.flowContexts).toContainEqual({ kind: 'none' });
+    expect(models.faqHistories).toHaveLength(1); // handed to the agent
     expect(calls.sends).toHaveLength(1);
   });
 });

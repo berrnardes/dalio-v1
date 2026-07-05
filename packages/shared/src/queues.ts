@@ -16,6 +16,8 @@ export const QUEUES = {
   TRANSCRIPTION: 'transcription',
   /** WAHA session.status events → channel status, alerts, auto-restart. */
   SESSION_HEALTH: 'session-health',
+  /** 1/min scan of due reminders → confirmation/reminder sends (Phase 4). */
+  REMINDERS_SCAN: 'reminders-scan',
 } as const;
 export type QueueName = (typeof QUEUES)[keyof typeof QUEUES];
 
@@ -41,6 +43,15 @@ export interface TranscriptionJob {
   conversationId: string;
   mediaUrl: string;
 }
+
+/**
+ * Reminder scanner tick (Phase 4) — a repeatable heartbeat job, not a
+ * long-delayed per-reminder job: the scan-pattern re-reads the DUE set on
+ * every tick so reschedules/cancellations are always reflected, and a missed
+ * tick never loses a reminder (the next tick picks it up). Carries no
+ * payload; the DB is the schedule.
+ */
+export type ReminderScanJob = Record<string, never>;
 
 export interface SessionHealthJob {
   provider: Provider;

@@ -80,7 +80,22 @@ export class AppointmentsRepository extends TenantScopedRepository {
       .orderBy(appointments.startsAt);
   }
 
-  async cancel(id: string): Promise<boolean> {
+  getById(id: string): Promise<AppointmentRow | undefined> {
+    return this.db
+      .select()
+      .from(appointments)
+      .where(and(eq(appointments.clinicId, this.clinicId), eq(appointments.id, id)))
+      .limit(1)
+      .then((rows) => rows[0]);
+  }
+
+  /**
+   * Cancels an occupying appointment and returns the freed row (service +
+   * time) so the caller can run reminder cancellation and waitlist backfill.
+   * The status guard makes this idempotent — a double cancel returns
+   * undefined, so backfill/reminder-cancel never fire twice.
+   */
+  async cancel(id: string): Promise<AppointmentRow | undefined> {
     const [row] = await this.db
       .update(appointments)
       .set({ status: 'cancelled' })
@@ -91,7 +106,43 @@ export class AppointmentsRepository extends TenantScopedRepository {
           inArray(appointments.status, [...OCCUPYING]),
         ),
       )
-      .returning({ id: appointments.id });
-    return row !== undefined;
+      .returning();
+    return row;
+  }
+
+  /** scheduled/confirmed → confirmed (reminder confirmation reply). */
+  async confirm(id: string): Promise<AppointmentRow | undefined> {
+    const [row] = await this.db
+      .update(appointments)
+      .set({ status: 'confirmed' })
+      .where(
+        and(
+          eq(appointments.clinicId, this.clinicId),
+          eq(appointments.id, id),
+          inArray(appointments.status, [...OCCUPYING]),
+        ),
+      )
+      .returning();
+    return row;
+  }
+
+  /** Terminal transition from an occupying state to `status`. Returns the
+   *  row (with service + time) so no_show can trigger a follow-up + backfill. */
+  async transitionTo(
+    id: string,
+    status: 'completed' | 'no_show',
+  ): Promise<AppointmentRow | undefined> {
+    const [row] = await this.db
+      .update(appointments)
+      .set({ status })
+      .where(
+        and(
+          eq(appointments.clinicId, this.clinicId),
+          eq(appointments.id, id),
+          inArray(appointments.status, [...OCCUPYING]),
+        ),
+      )
+      .returning();
+    return row;
   }
 }

@@ -14,6 +14,7 @@ import { HealthController } from './health/health.controller';
 import { InboxModule } from './inbox/inbox.module';
 import { OutboundModule } from './outbound/outbound.module';
 import { QueuesModule } from './queues/queues.module';
+import { RemindersModule } from './reminders/reminders.module';
 import { SchedulingModule } from './scheduling/scheduling.module';
 import { TenancyModule } from './tenancy/tenancy.module';
 import { TenantContextMiddleware } from './tenancy/tenant-context.middleware';
@@ -38,6 +39,7 @@ import { TranscriptionModule } from './transcription/transcription.module';
     TranscriptionModule,
     CatalogModule,
     SchedulingModule,
+    RemindersModule,
     AgentModule,
   ],
   controllers: [HealthController],

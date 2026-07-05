@@ -5,6 +5,7 @@
 // reads — errors return honest messages, never throw through the graph.
 import { TZDate } from '@date-fns/tz';
 import { z } from 'zod';
+import type { AppointmentLifecycleService } from '../reminders/appointment-lifecycle.service';
 import type { AppointmentsRepository } from '../scheduling/appointments.repository';
 import type { AvailabilityService } from '../scheduling/availability.service';
 
@@ -18,6 +19,9 @@ export interface AgentToolDef {
 export interface AgentToolDeps {
   availability: AvailabilityService;
   appointmentsRepo: AppointmentsRepository;
+  /** Writes go through the lifecycle so booking generates the reminder
+   *  cadence and cancel/reschedule cancel it + backfill the waitlist. */
+  lifecycle: AppointmentLifecycleService;
   contactId: string;
   timezone: string;
 }
@@ -62,7 +66,7 @@ export function buildAgentTools(deps: AgentToolDeps): AgentToolDef[] {
       }),
       execute: async (input) => {
         const { serviceId, startsAtISO } = input as { serviceId: string; startsAtISO: string };
-        const result = await deps.availability.book({
+        const result = await deps.lifecycle.book({
           contactId: deps.contactId,
           serviceId,
           startsAtISO,
@@ -100,7 +104,7 @@ export function buildAgentTools(deps: AgentToolDeps): AgentToolDef[] {
       schema: z.object({ appointmentId: z.string().describe('id do agendamento a cancelar') }),
       execute: async (input) => {
         const { appointmentId } = input as { appointmentId: string };
-        const ok = await deps.appointmentsRepo.cancel(appointmentId);
+        const ok = await deps.lifecycle.cancel(appointmentId);
         return ok
           ? 'Horário cancelado com sucesso.'
           : 'Não encontrei um agendamento ativo com esse id.';

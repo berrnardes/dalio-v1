@@ -110,3 +110,16 @@ export function handoffReply(params: { open: boolean; medical: boolean }): strin
 
 export const OPT_OUT_REPLY =
   'Tudo bem! Você não vai mais receber mensagens nossas. Se mudar de ideia, é só mandar um oi por aqui. 💚';
+
+/**
+ * Acknowledgements for a confirmation reply (Phase 4). Deterministic system
+ * replies — parallel to OPT_OUT_REPLY — sent when the contact answers a
+ * reminder's confirmation choice. Low-volume 1:1 reactive copy (not proactive
+ * bulk), so constants, not templates.
+ */
+export const CONFIRMATION_REPLIES = {
+  confirmed: 'Perfeito, seu horário está confirmado! Até lá. 💚',
+  cancelled: 'Tudo bem, seu horário foi cancelado. Se quiser remarcar, é só me chamar!',
+  reschedule:
+    'Sem problema! Me diz qual dia e horário ficam melhores pra você que eu verifico a agenda. 😊',
+} as const;

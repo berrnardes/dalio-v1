@@ -309,6 +309,19 @@ interface MessagingProvider {
 
 Suíte de testes de contrato compartilhada; `CloudApiProvider` fica como stub que passa os testes de tipo, sem implementação no v1.
 
+### 4.6 Motor anti-no-show (implementado na Fase 4)
+
+**Máquina de estados de `appointments`** — toda escrita passa pelo `AppointmentLifecycleService` (único caminho: agente, controller e scanner convergem nele), que mantém três efeitos acoplados de forma atômica por operação: transição de status com guard (`scheduled→confirmed`, `scheduled|confirmed→cancelled|no_show|completed`), cadência de `reminders` e backfill da lista de espera.
+
+- **book** → gera a cadência (`confirm_24h` T-24h, `reminder_3h` T-3h, `at_risk_2h` T-2h; offsets sobrescrevíveis em `clinics.settings`); lembretes cujo `dueAt` já passou no momento do booking são pulados, não enviados atrasados.
+- **cancel** (contato, agente ou humano) → cancela lembretes pendentes + `waitlist` backfill (1 candidato compatível notificado por vaga via template `waitlist_slot_open` — nunca broadcast). Idempotente: cancelar o já-cancelado é no-op sem efeitos.
+- **remarcação** = cancel + rebooking pelo agente (a nova reserva regenera a cadência do zero).
+- **no-show** → cancela lembretes + agenda follow-up (`no_show_followup`, +60min) + backfill da vaga.
+
+**Scanner (`reminders-scan`)** — job repetível 1/min via `upsertJobScheduler` (chave fixa → um ticker por N instâncias da api). Cada tick re-lê o conjunto DUE do banco (nunca delayed jobs): cancelamento/remarcação entre ticks é sempre honrado e um tick perdido não perde nada. Por lembrete devido: opt-out do contato ou appointment não-vivo → cancela o lembrete; fora da janela de envio da clínica (`settings.sendWindow`, default 08:00–20:00, fuso da clínica) → **deferido** para o próximo tick dentro da janela, nunca descartado; canal desconectado → deferido. Kinds de confirmação (`confirm_24h`, `at_risk_2h`) enviam intent `choice` (Confirmar/Remarcar/Cancelar) e armam `conversations.flowContext = awaiting_confirmation`; os demais enviam intent `template`. Copy sempre por `templateKey` com variantes (anti-ban).
+
+**Resposta de confirmação** — parseada DETERMINISTICAMENTE no turn handler (dígito ou label, nunca o LLM — um "confirmado" errado custa uma cadeira) e funciona sem API key configurada, como o opt-out. `confirm` → lifecycle.confirm + ack; `cancel` → lifecycle.cancel (lembretes + backfill) + ack; `reschedule` → lifecycle.cancel + convite a novo horário (o agente rebooka no turno seguinte). Resposta que não é escolha clara limpa o flag e cai no agente (o contato mudou de assunto). `flowContext.awaiting_confirmation` também pula o debounce (invariante 2 do §4.4).
+
 ---
 
 ## 5. Grafo do agente (implementado na Fase 2)
@@ -353,7 +366,7 @@ Auth: Better-auth (sessão via cookie; organização ativa = clínica). Prefixo 
 |---|---|
 | Webhooks | `POST /webhooks/waha` (HMAC) · `GET/POST /webhooks/cloud` (stub) |
 | Inbox | `GET /conversations?status=` · `GET /conversations/:id[/messages]` (cursor uuidv7 `?before=`) · `POST /conversations/:id/messages` (humano; auto-pausa 8h) · `POST /conversations/:id/pause\|resume` · `POST /conversations/:id/drafts/:messageId/approve\|reject` (modo supervisionado) · `GET /conversations/digest` (digest matinal, default últimas 16h) |
-| Agenda | CRUD `appointments`, `services`, `professionals` · `GET /availability?serviceId&date` |
+| Agenda | `GET /availability?serviceId&date` · `GET /appointments` · `POST /appointments` · `POST /appointments/:id/confirm\|cancel\|no-show\|complete` (escritas via `AppointmentLifecycleService` — §4.6) · `POST /waitlist` · `GET/POST /professionals` · CRUD `services` |
 | Contatos | CRUD + import CSV · `POST /contacts/:id/optout` |
 | Campanhas | CRUD `campaigns` · `POST /campaigns/:id/start\|pause` · preview de segmento com supressões |
 | Canal | `GET /channel/status` · `POST /channel/pair` (QR — uso interno da operação) |

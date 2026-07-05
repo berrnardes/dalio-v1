@@ -49,6 +49,21 @@ export class ChannelsRepository {
     return row ?? null;
   }
 
+  /**
+   * A connected channel id for a clinic, or null. Used by proactive senders
+   * (reminders, waitlist backfill — Phase 4) that hold a clinicId but no
+   * channel: a clinic with no connected number simply can't be reached, and
+   * the caller skips rather than failing.
+   */
+  async findConnectedChannelId(clinicId: string): Promise<string | null> {
+    const [row] = await this.db
+      .select({ id: channels.id })
+      .from(channels)
+      .where(and(eq(channels.clinicId, clinicId), eq(channels.status, 'connected')))
+      .limit(1);
+    return row?.id ?? null;
+  }
+
   /** Status transitions come exclusively from the session-health worker. */
   async updateStatusByExternalId(
     provider: Provider,

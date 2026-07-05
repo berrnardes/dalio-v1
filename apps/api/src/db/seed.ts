@@ -105,6 +105,71 @@ async function main() {
     },
   ]);
 
+  // A connected dev channel so the reminder scanner (Phase 4) has somewhere
+  // to send in local runs. externalId matches the WAHA dev session name.
+  await db.insert(schema.channels).values({
+    clinicId: clinic!.id,
+    provider: 'waha',
+    externalId: 'default',
+    status: 'connected',
+  });
+
+  // Reminder + waitlist copy (iron rule #2: reminders reference templateKey).
+  // Multiple variants per key = anti-ban copy variation (DOCUMENTO-EXECUTIVO
+  // §3.3). {{nome}} {{servico}} {{data}} {{hora}} filled at send time.
+  await db.insert(schema.templates).values([
+    {
+      clinicId: clinic!.id,
+      key: 'reminder_confirm_24h',
+      category: 'utility',
+      variants: [
+        'Oi {{nome}}! Passando pra confirmar seu horário de {{servico}} amanhã, dia {{data}} às {{hora}}. Podemos manter?',
+        'Olá {{nome}}! Seu {{servico}} está marcado pra amanhã ({{data}}) às {{hora}}. Tá tudo certo pra você?',
+      ],
+      variables: ['nome', 'servico', 'data', 'hora'],
+    },
+    {
+      clinicId: clinic!.id,
+      key: 'reminder_3h',
+      category: 'utility',
+      variants: [
+        'Oi {{nome}}! Seu {{servico}} é hoje às {{hora}}. Te esperamos! 💚',
+        'Lembrete rápido, {{nome}}: seu horário de {{servico}} é hoje às {{hora}}. Até já!',
+      ],
+      variables: ['nome', 'servico', 'hora'],
+    },
+    {
+      clinicId: clinic!.id,
+      key: 'reminder_at_risk',
+      category: 'utility',
+      variants: [
+        'Oi {{nome}}! Ainda não recebi sua confirmação pro {{servico}} de hoje às {{hora}}. Posso manter o horário?',
+        '{{nome}}, seu {{servico}} é hoje às {{hora}} e o horário ainda está te esperando. Confirma pra mim?',
+      ],
+      variables: ['nome', 'servico', 'hora'],
+    },
+    {
+      clinicId: clinic!.id,
+      key: 'reminder_no_show_followup',
+      category: 'utility',
+      variants: [
+        'Oi {{nome}}! Sentimos sua falta no {{servico}} de hoje. Quer que eu veja um novo horário pra você?',
+        '{{nome}}, notamos que não conseguiu vir pro {{servico}}. Sem problema! Quer remarcar? É só me dizer o melhor dia.',
+      ],
+      variables: ['nome', 'servico'],
+    },
+    {
+      clinicId: clinic!.id,
+      key: 'waitlist_slot_open',
+      category: 'utility',
+      variants: [
+        'Oi {{nome}}! Abriu uma vaga de {{servico}} no dia {{data}} às {{hora}}. Quer que eu reserve pra você?',
+        'Boa notícia, {{nome}}! Surgiu um horário de {{servico}} em {{data}} às {{hora}}. Te interessa?',
+      ],
+      variables: ['nome', 'servico', 'data', 'hora'],
+    },
+  ]);
+
   console.log(`Seeded clinic "${clinic!.name}" (${clinic!.id})`);
   console.log(`Login: ${SEED_EMAIL} / ${SEED_PASSWORD}`);
   await client.end();

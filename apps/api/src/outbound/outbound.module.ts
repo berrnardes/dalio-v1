@@ -22,6 +22,6 @@ import { TemplatesRepository } from './templates.repository';
     TemplateRenderService,
     TemplatesRepository,
   ],
-  exports: [OutboxService, CanContactService],
+  exports: [OutboxService, CanContactService, TemplateRenderService],
 })
 export class OutboundModule {}

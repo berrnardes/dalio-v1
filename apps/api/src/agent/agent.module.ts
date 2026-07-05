@@ -10,13 +10,21 @@ import { MessagingDataModule } from '../conversations/messaging-data.module';
 import { TURN_HANDLER } from '../conversations/turn-handler';
 import { InboxEventsModule } from '../inbox/inbox-events.module';
 import { OutboundModule } from '../outbound/outbound.module';
-import { SchedulingModule } from '../scheduling/scheduling.module';
+import { RemindersModule } from '../reminders/reminders.module';
+import { SchedulingDataModule } from '../scheduling/scheduling-data.module';
 import { AGENT_MODELS, AnthropicAgentModels, UnconfiguredAgentModels } from './agent-models';
 import { AgentTurnHandler } from './agent-turn.handler';
 import { UsageService } from './usage.service';
 
 @Module({
-  imports: [MessagingDataModule, SchedulingModule, OutboundModule, CatalogModule, InboxEventsModule],
+  imports: [
+    MessagingDataModule,
+    SchedulingDataModule,
+    RemindersModule,
+    OutboundModule,
+    CatalogModule,
+    InboxEventsModule,
+  ],
   providers: [
     UsageService,
     {

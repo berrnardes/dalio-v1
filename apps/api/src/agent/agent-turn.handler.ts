@@ -14,13 +14,16 @@ import { InboxEventsService } from '../inbox/inbox-events.service';
 import type { TurnHandler, TurnInput } from '../conversations/turn-handler';
 import { ServicesRepository } from '../catalog/services.repository';
 import { OutboxService } from '../outbound/outbox.service';
+import { AppointmentLifecycleService } from '../reminders/appointment-lifecycle.service';
+import { ConfirmationBuilder } from '../reminders/confirmation.builder';
 import { AppointmentsRepository } from '../scheduling/appointments.repository';
 import { AvailabilityService } from '../scheduling/availability.service';
 import { ClinicsRepository } from '../scheduling/clinics.repository';
+import { CONFIRMATION_OPTIONS } from '@dalio/shared';
 import type { AgentModels } from './agent-models';
 import { AGENT_MODELS } from './agent-models';
 import { runAgentGraph } from './agent-graph';
-import { OPT_OUT_REPLY, buildSystemPrompt, isOpenNow } from './agent-prompts';
+import { CONFIRMATION_REPLIES, OPT_OUT_REPLY, buildSystemPrompt, isOpenNow } from './agent-prompts';
 import { buildAgentTools } from './agent-tools';
 import { detectOptOut } from './opt-out.detector';
 
@@ -40,18 +43,12 @@ export class AgentTurnHandler implements TurnHandler {
     private readonly servicesRepo: ServicesRepository,
     private readonly availability: AvailabilityService,
     private readonly appointmentsRepo: AppointmentsRepository,
+    private readonly lifecycle: AppointmentLifecycleService,
     private readonly outbox: OutboxService,
     private readonly inboxEvents: InboxEventsService,
   ) {}
 
   async handleTurn(input: TurnInput): Promise<void> {
-    // Dev environments without an API key observe silently instead of
-    // failing the job into BullMQ retries.
-    if (!this.models.configured) {
-      this.logger.warn(`Agent unconfigured — skipping turn for ${input.conversationId}`);
-      return;
-    }
-
     const conversation = await this.conversationsRepo.getById(input.conversationId);
     if (!conversation) return;
 
@@ -65,15 +62,30 @@ export class AgentTurnHandler implements TurnHandler {
     const burstText = input.messages.map((m) => m.text).join('\n');
 
     // Deterministic opt-out BEFORE any LLM call: LGPD enforcement must not
-    // depend on model behavior (iron rule #4).
+    // depend on model behavior (iron rule #4). Runs even when the LLM is
+    // unconfigured — compliance can't hinge on an API key being present.
     if (detectOptOut(burstText)) {
       await this.contactsRepo.setOptOut(contact.id);
-      await this.outbox.send({
-        conversationId: conversation.id,
-        channelId: conversation.channelId,
-        intent: { kind: 'text', text: OPT_OUT_REPLY },
-        source: 'agent',
-      });
+      await this.sendAgentText(conversation, OPT_OUT_REPLY);
+      return;
+    }
+
+    // Confirmation reply (Phase 4): if a reminder set the conversation to
+    // awaiting_confirmation, map the reply to an action DETERMINISTICALLY —
+    // never the LLM (a wrong "confirmed" costs the clinic a chair). Also runs
+    // regardless of LLM config: the no-show engine must work without a key. A
+    // reply that isn't a clear choice clears the flag and falls through to the
+    // agent (the contact changed the subject).
+    if (conversation.flowContext?.kind === 'awaiting_confirmation') {
+      const handled = await this.handleConfirmationReply(conversation, burstText);
+      if (handled) return;
+      await this.conversationsRepo.setFlowContext(conversation.id, { kind: 'none' });
+    }
+
+    // Everything below needs the LLM. Dev/test without a key observes silently
+    // (the deterministic flows above already ran).
+    if (!this.models.configured) {
+      this.logger.warn(`Agent unconfigured — skipping LLM turn for ${input.conversationId}`);
       return;
     }
 
@@ -92,6 +104,7 @@ export class AgentTurnHandler implements TurnHandler {
         tools: buildAgentTools({
           availability: this.availability,
           appointmentsRepo: this.appointmentsRepo,
+          lifecycle: this.lifecycle,
           contactId: contact.id,
           timezone: clinic.timezone,
         }),
@@ -134,6 +147,65 @@ export class AgentTurnHandler implements TurnHandler {
         });
       }
     }
+  }
+
+  /**
+   * Maps a confirmation reply to an appointment action. Returns false when the
+   * reply isn't a clear choice (caller then hands the turn to the agent).
+   * The action (confirm/cancel) runs through the lifecycle so reminders and
+   * waitlist backfill fire; the ack is a deterministic reactive reply that
+   * sends directly (the state change already happened — it must be told).
+   */
+  private async handleConfirmationReply(
+    conversation: { id: string; channelId: string; flowContext: unknown },
+    burstText: string,
+  ): Promise<boolean> {
+    const flow = conversation.flowContext as {
+      kind: 'awaiting_confirmation';
+      appointmentId: string;
+      options: { id: string; label: string }[];
+    };
+    const optionId = ConfirmationBuilder.parseReply(burstText, flow.options);
+    if (!optionId) return false;
+
+    switch (optionId) {
+      case CONFIRMATION_OPTIONS.CONFIRM:
+        await this.lifecycle.confirm(flow.appointmentId);
+        await this.clearFlowAndReply(conversation, CONFIRMATION_REPLIES.confirmed);
+        return true;
+      case CONFIRMATION_OPTIONS.CANCEL:
+        await this.lifecycle.cancel(flow.appointmentId);
+        await this.clearFlowAndReply(conversation, CONFIRMATION_REPLIES.cancelled);
+        return true;
+      case CONFIRMATION_OPTIONS.RESCHEDULE:
+        // Free the slot now (cancels reminders + backfills); the agent rebooks
+        // when the contact names a new time in their next message.
+        await this.lifecycle.cancel(flow.appointmentId);
+        await this.clearFlowAndReply(conversation, CONFIRMATION_REPLIES.reschedule);
+        return true;
+      default:
+        return false;
+    }
+  }
+
+  private async clearFlowAndReply(
+    conversation: { id: string; channelId: string },
+    text: string,
+  ): Promise<void> {
+    await this.conversationsRepo.setFlowContext(conversation.id, { kind: 'none' });
+    await this.sendAgentText(conversation, text);
+  }
+
+  private async sendAgentText(
+    conversation: { id: string; channelId: string },
+    text: string,
+  ): Promise<void> {
+    await this.outbox.send({
+      conversationId: conversation.id,
+      channelId: conversation.channelId,
+      intent: { kind: 'text', text },
+      source: 'agent',
+    });
   }
 
   private async saveDraft(

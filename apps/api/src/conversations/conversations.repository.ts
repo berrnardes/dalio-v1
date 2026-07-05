@@ -2,7 +2,7 @@
 // (iron rule #1); workers open the tenant scope from the job payload.
 import { Injectable } from '@nestjs/common';
 import { and, asc, desc, eq, lt, notInArray } from 'drizzle-orm';
-import type { InboundContent, MessageKind } from '@dalio/shared';
+import type { FlowContext, InboundContent, MessageKind } from '@dalio/shared';
 import { conversations, messages } from '../db/schema';
 import { TenantScopedRepository } from '../tenancy/tenant-scoped.repository';
 
@@ -119,6 +119,19 @@ export class ConversationsRepository extends TenantScopedRepository {
     await this.db
       .update(conversations)
       .set({ pausedUntil: null, pausedByUserId: null })
+      .where(and(eq(conversations.clinicId, this.clinicId), eq(conversations.id, conversationId)));
+  }
+
+  /**
+   * Sets what the conversation is waiting for (Phase 4: awaiting_confirmation
+   * after a reminder). The inbound worker reads this to skip debounce for a
+   * structured "1", and the turn handler reads it to parse a confirmation
+   * reply deterministically before any LLM call.
+   */
+  async setFlowContext(conversationId: string, flowContext: FlowContext): Promise<void> {
+    await this.db
+      .update(conversations)
+      .set({ flowContext })
       .where(and(eq(conversations.clinicId, this.clinicId), eq(conversations.id, conversationId)));
   }
 

@@ -19,6 +19,15 @@ export class ServicesRepository extends TenantScopedRepository {
       .where(and(eq(services.clinicId, this.clinicId), eq(services.active, true)));
   }
 
+  async getById(id: string) {
+    const [row] = await this.db
+      .select()
+      .from(services)
+      .where(and(eq(services.clinicId, this.clinicId), eq(services.id, id)))
+      .limit(1);
+    return row ?? null;
+  }
+
   async create(input: CreateServiceInput) {
     const [row] = await this.db
       .insert(services)

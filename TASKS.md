@@ -29,7 +29,7 @@ Regra: fases em ordem (sequenciadas por risco — ver DOCUMENTO-EXECUTIVO §7 e 
 - [x] Fila `session-health`: status WAHA → `channels.status` + auto-restart em FAILED (alerta real: Fase 7)
 - [x] **Testes de tempestade** (Testcontainers, gate de merge): 3 invariantes E2E — encontraram 1 bug real (*tombstone de jobId completado estrangulava rajadas subsequentes)
 - [x] Testes de contrato do `MessagingProvider` (suíte compartilhada Waha+Cloud) + stub `CloudApiProvider` com janela de 24h real
-- [ ] Testes dedicados do outbound worker (FIFO sob contenção, caps) — cobrir na Fase 2 junto com o primeiro fluxo que envia de verdade
+- [x] Testes dedicados do outbound worker (FIFO sob contenção, caps) — coberto na Fase 4 (primeiro tráfego proativo real: cap diário exercitado na suíte de reminders)
 
 ## Fase 2 — Agente + calendário nativo ✅ (2026-07-05)
 
@@ -41,7 +41,7 @@ Regra: fases em ordem (sequenciadas por risco — ver DOCUMENTO-EXECUTIVO §7 e 
 - [x] LangSmith: tracing via env (`LANGSMITH_*`), tag `clinic_id`/`conversation_id` por turno; custo LLM por clínica → `usage_counters` (tiering: Haiku $1/$5, Opus 4.8 $5/$25 por MTok)
 - [x] Regressão de FLUXO com modelos fake: roteamento, guardrail, tool loop (resultado volta como ToolMessage), exaustão, opt-out — sem rede, sem tokens
 - [ ] Avaliação de QUALIDADE com LLM real (env-gated por `ANTHROPIC_API_KEY`; transcrições reais quando o piloto gerar dados)
-- [ ] Testes dedicados do outbound worker (FIFO sob contenção, caps) — pendência herdada da Fase 1
+- [x] Testes dedicados do outbound worker (FIFO sob contenção, caps) — pendência herdada da Fase 1, resolvida na Fase 4
 
 ## Fase 3 — Inbox de handoff ✅ (2026-07-05; único canal humano — prioridade nº 1 do frontend)
 
@@ -52,14 +52,15 @@ Regra: fases em ordem (sequenciadas por risco — ver DOCUMENTO-EXECUTIVO §7 e 
 - [x] Digest matinal (`GET /conversations/digest`): conversas da noite, agendamentos, handoffs pendentes, rascunhos — card expansível no inbox
 - [x] Testes: 11 de integração (Testcontainers, auth Better-auth REAL: sign-up→org→set-active→guards; SSE de ponta a ponta; outbound worker completa envios aprovados) + 4 unitários do modo supervisionado — 93 no total, tempestade verde
 
-## Fase 4 — Motor anti-no-show
+## Fase 4 — Motor anti-no-show ✅ (2026-07-05)
 
-- [ ] Máquina de estados de `appointments` + geração de `reminders` pela cadência da clínica
-- [ ] Scanner 1/min (fila `reminders-scan`) → intents `choice` de confirmação
-- [ ] Fluxos: confirmação T-24h, lembrete T-3h, at-risk T-2h, follow-up pós-no-show
-- [ ] Remarcação pelo agente cancela/regenera lembretes
-- [ ] Lista de espera + backfill de vaga em risco/cancelada
-- [ ] Janela de envio da clínica respeitada (nada às 3h da manhã)
+- [x] Máquina de estados de `appointments` (confirm/cancel/no-show/complete com guards de status) + geração de `reminders` pela cadência da clínica (`AppointmentLifecycleService` = único caminho de escrita; offsets por clínica com default 24h/3h/2h; dueAt já passado é pulado no booking)
+- [x] Scanner 1/min (fila `reminders-scan`, `upsertJobScheduler` idempotente → um ticker por N instâncias) → re-lê o conjunto DUE a cada tick (cancelamento/remarcação sempre honrados) → intents `choice` de confirmação + `flowContext.awaiting_confirmation`
+- [x] Fluxos: confirmação T-24h, lembrete T-3h, at-risk T-2h, follow-up pós-no-show (+60min); resposta de confirmação parseada DETERMINISTICAMENTE antes de qualquer LLM (funciona sem API key)
+- [x] Remarcação (opção "Remarcar" ou agente) cancela lembretes + libera vaga; o rebooking pelo agente regenera a cadência via lifecycle
+- [x] Lista de espera + backfill: cancelamento/no-show notifica 1 candidato compatível por vaga (template `waitlist_slot_open`; sem estouro de manada)
+- [x] Janela de envio da clínica respeitada no scanner (`settings.sendWindow`, default 08:00–20:00 no fuso da clínica) — deferimento, nunca descarte
+- [x] Testes: 10 unitários (cadência/parse/janela/cancel) + 6 de integração (scanner→confirmação armada, deferimento fora da janela, opt-out cancela sem enviar, "1" confirma sem LLM, backfill da waitlist, cap diário do outbound worker) — resolve a pendência herdada da Fase 1/2
 
 ## Fase 5 — Dashboard de métricas em R$
 
