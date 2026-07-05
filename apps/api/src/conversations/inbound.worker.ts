@@ -11,6 +11,7 @@ import type { InboundJob, TranscriptionJob } from '@dalio/shared';
 import { ChannelsRepository } from '../channels/channels.repository';
 import type { ProviderRegistry } from '../channels/providers/messaging-provider';
 import { PROVIDER_REGISTRY } from '../channels/providers/messaging-provider';
+import { InboxEventsService } from '../inbox/inbox-events.service';
 import { TenantContextService } from '../tenancy/tenant-context.service';
 import { BufferService, DEFAULT_DEBOUNCE_MS } from './buffer.service';
 import { ContactsRepository } from './contacts.repository';
@@ -25,6 +26,7 @@ export class InboundWorker extends WorkerHost {
     private readonly contactsRepo: ContactsRepository,
     private readonly conversationsRepo: ConversationsRepository,
     private readonly buffer: BufferService,
+    private readonly inboxEvents: InboxEventsService,
     private readonly tenantContext: TenantContextService,
     @Inject(PROVIDER_REGISTRY) private readonly providers: ProviderRegistry,
     @InjectQueue(QUEUES.TRANSCRIPTION)
@@ -66,6 +68,13 @@ export class InboundWorker extends WorkerHost {
         if (!message) return; // dedupe backstop fired — already processed
 
         await this.conversationsRepo.touchLastInbound(convo.id, at);
+
+        // Live inbox (Phase 3): id-pointer only — the dashboard refetches.
+        await this.inboxEvents.publish(channel.clinicId, {
+          type: 'message',
+          conversationId: convo.id,
+          messageId: message.id,
+        });
 
         // Audio: buffer entry is created by the transcription worker once
         // text exists; the debounce window opens when that entry lands.

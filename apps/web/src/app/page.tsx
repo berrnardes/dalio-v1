@@ -1,8 +1,6 @@
+import { redirect } from 'next/navigation';
+
+/** The inbox IS the dashboard's home — Phase 3 (frontend priority #1). */
 export default function Home() {
-  return (
-    <main style={{ fontFamily: 'system-ui', padding: '4rem', textAlign: 'center' }}>
-      <h1>Dalio</h1>
-      <p>Dashboard em construção — Fase 3 do backlog.</p>
-    </main>
-  );
+  redirect('/inbox');
 }

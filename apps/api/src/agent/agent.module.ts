@@ -8,6 +8,7 @@ import { ConfigService } from '@nestjs/config';
 import { CatalogModule } from '../catalog/catalog.module';
 import { MessagingDataModule } from '../conversations/messaging-data.module';
 import { TURN_HANDLER } from '../conversations/turn-handler';
+import { InboxEventsModule } from '../inbox/inbox-events.module';
 import { OutboundModule } from '../outbound/outbound.module';
 import { SchedulingModule } from '../scheduling/scheduling.module';
 import { AGENT_MODELS, AnthropicAgentModels, UnconfiguredAgentModels } from './agent-models';
@@ -15,7 +16,7 @@ import { AgentTurnHandler } from './agent-turn.handler';
 import { UsageService } from './usage.service';
 
 @Module({
-  imports: [MessagingDataModule, SchedulingModule, OutboundModule, CatalogModule],
+  imports: [MessagingDataModule, SchedulingModule, OutboundModule, CatalogModule, InboxEventsModule],
   providers: [
     UsageService,
     {

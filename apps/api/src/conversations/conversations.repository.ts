@@ -1,7 +1,7 @@
 // Conversations + messages persistence for the pipeline. Tenant-scoped
 // (iron rule #1); workers open the tenant scope from the job payload.
 import { Injectable } from '@nestjs/common';
-import { and, asc, desc, eq, notInArray } from 'drizzle-orm';
+import { and, asc, desc, eq, lt, notInArray } from 'drizzle-orm';
 import type { InboundContent, MessageKind } from '@dalio/shared';
 import { conversations, messages } from '../db/schema';
 import { TenantScopedRepository } from '../tenancy/tenant-scoped.repository';
@@ -82,11 +82,43 @@ export class ConversationsRepository extends TenantScopedRepository {
     return rows.reverse();
   }
 
+  /**
+   * Inbox timeline page (Phase 3). Cursor pagination on the uuidv7 id
+   * (time-ordered): `before` fetches the page older than a message the
+   * client already has. Returned oldest-first, ready to render.
+   */
+  async listMessagesPage(
+    conversationId: string,
+    opts: { before?: string; limit?: number } = {},
+  ): Promise<MessageRow[]> {
+    const rows = await this.db
+      .select()
+      .from(messages)
+      .where(
+        and(
+          eq(messages.clinicId, this.clinicId),
+          eq(messages.conversationId, conversationId),
+          opts.before ? lt(messages.id, opts.before) : undefined,
+        ),
+      )
+      .orderBy(desc(messages.id))
+      .limit(Math.min(opts.limit ?? 50, 200));
+    return rows.reverse();
+  }
+
   /** Human takeover / handoff: the agent stays silent until `until` passes. */
   async pause(conversationId: string, until: Date, byUserId: string): Promise<void> {
     await this.db
       .update(conversations)
       .set({ pausedUntil: until, pausedByUserId: byUserId })
+      .where(and(eq(conversations.clinicId, this.clinicId), eq(conversations.id, conversationId)));
+  }
+
+  /** Hands the thread back to the agent (inbox "reativar agente" action). */
+  async resume(conversationId: string): Promise<void> {
+    await this.db
+      .update(conversations)
+      .set({ pausedUntil: null, pausedByUserId: null })
       .where(and(eq(conversations.clinicId, this.clinicId), eq(conversations.id, conversationId)));
   }
 
@@ -160,6 +192,60 @@ export class ConversationsRepository extends TenantScopedRepository {
       })
       .returning();
     return row!;
+  }
+
+  /**
+   * Supervised mode (Phase 3): the agent's reply parks as a draft awaiting
+   * human approval in the inbox. Drafts never enter the outbound FIFO —
+   * the worker's cursor only sees status='queued'.
+   */
+  async appendOutboundDraft(params: {
+    conversationId: string;
+    kind: MessageKind;
+    intent: NonNullable<MessageRow['intent']>;
+  }): Promise<MessageRow> {
+    const [row] = await this.db
+      .insert(messages)
+      .values({
+        clinicId: this.clinicId,
+        conversationId: params.conversationId,
+        direction: 'outbound',
+        source: 'agent',
+        kind: params.kind,
+        body: {},
+        intent: params.intent,
+        status: 'draft',
+      })
+      .returning();
+    return row!;
+  }
+
+  /**
+   * draft → queued, guarded by the current status so a double-click (or two
+   * operators) can't approve twice. Returns the row only when THIS call won.
+   */
+  async approveDraft(id: string): Promise<MessageRow | null> {
+    const [row] = await this.db
+      .update(messages)
+      .set({ status: 'queued' })
+      .where(
+        and(eq(messages.clinicId, this.clinicId), eq(messages.id, id), eq(messages.status, 'draft')),
+      )
+      .returning();
+    return row ?? null;
+  }
+
+  /** draft → discarded (kept, not deleted: the audit trail of what the agent
+   *  wanted to say is exactly what the pilot's trust ramp needs to review). */
+  async discardDraft(id: string): Promise<boolean> {
+    const rows = await this.db
+      .update(messages)
+      .set({ status: 'discarded' })
+      .where(
+        and(eq(messages.clinicId, this.clinicId), eq(messages.id, id), eq(messages.status, 'draft')),
+      )
+      .returning({ id: messages.id });
+    return rows.length > 0;
   }
 
   async getMessageById(id: string): Promise<MessageRow | null> {

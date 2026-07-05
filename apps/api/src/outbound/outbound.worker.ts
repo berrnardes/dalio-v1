@@ -17,6 +17,7 @@ import { PROVIDER_REGISTRY } from '../channels/providers/messaging-provider';
 import { renderChoiceAsText } from '../channels/providers/choice-parsing';
 import { ContactsRepository } from '../conversations/contacts.repository';
 import { ConversationsRepository } from '../conversations/conversations.repository';
+import { InboxEventsService } from '../inbox/inbox-events.service';
 import { REDIS } from '../queues/queues.module';
 import { TenantContextService } from '../tenancy/tenant-context.service';
 import { CanContactService } from './can-contact.service';
@@ -49,6 +50,7 @@ export class OutboundWorker extends WorkerHost {
     private readonly contactsRepo: ContactsRepository,
     private readonly canContact: CanContactService,
     private readonly templateRender: TemplateRenderService,
+    private readonly inboxEvents: InboxEventsService,
     private readonly tenantContext: TenantContextService,
   ) {
     super();
@@ -76,6 +78,7 @@ export class OutboundWorker extends WorkerHost {
       const channel = await this.getChannel(channelId);
       if (!conversation || !contact || !channel) {
         await this.conversationsRepo.markMessageFailed(messageId, 'missing conversation/contact/channel');
+        await this.notify(clinicId, conversationId, messageId);
         return;
       }
 
@@ -84,6 +87,7 @@ export class OutboundWorker extends WorkerHost {
       const decision = this.canContact.check(contact, message.source);
       if (!decision.allowed) {
         await this.conversationsRepo.markMessageFailed(messageId, decision.reason);
+        await this.notify(clinicId, conversationId, messageId);
         return;
       }
 
@@ -118,6 +122,7 @@ export class OutboundWorker extends WorkerHost {
         if (count > policy.maxPerDay) {
           await this.conversationsRepo.markMessageFailed(messageId, 'daily_cap_exceeded');
           this.logger.warn(`Daily cap hit on channel ${channelId} — proactive send dropped`);
+          await this.notify(clinicId, conversationId, messageId);
           return;
         }
       }
@@ -125,6 +130,7 @@ export class OutboundWorker extends WorkerHost {
       const intent = message.intent;
       if (!intent) {
         await this.conversationsRepo.markMessageFailed(messageId, 'outbox row has no intent');
+        await this.notify(clinicId, conversationId, messageId);
         return;
       }
 
@@ -154,13 +160,21 @@ export class OutboundWorker extends WorkerHost {
           renderedText,
         );
         await this.conversationsRepo.touchLastOutbound(conversationId, new Date());
+        await this.notify(clinicId, conversationId, messageId);
       } catch (err) {
         // Persist the failure detail, then rethrow so BullMQ retries with
         // backoff; the final failed attempt stays queryable in the DB.
         await this.conversationsRepo.markMessageFailed(messageId, err);
+        await this.notify(clinicId, conversationId, messageId);
         throw err;
       }
     });
+  }
+
+  /** Live inbox (Phase 3): every terminal status change (sent/failed) is
+   *  observable in the dashboard without polling. Id-pointers only. */
+  private notify(clinicId: string, conversationId: string, messageId: string): Promise<void> {
+    return this.inboxEvents.publish(clinicId, { type: 'message', conversationId, messageId });
   }
 
   private async requeue(data: OutboundJob, delayMs: number): Promise<void> {

@@ -15,6 +15,13 @@
       "when": 1783215478054,
       "tag": "0001_sturdy_saracen",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1783264337269,
+      "tag": "0002_free_wild_child",
+      "breakpoints": true
     }
   ]
 }

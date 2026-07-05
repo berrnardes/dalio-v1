@@ -11,6 +11,13 @@ export interface ClinicSettings {
   debounceMs?: number;
   /** Reminder cadence offsets in minutes before startsAt, per kind. */
   reminderOffsets?: { confirm24h?: number; reminder3h?: number; atRisk2h?: number };
+  /**
+   * Pilot trust ramp: when true, agent replies are saved as drafts
+   * (messages.status='draft') for human approval in the inbox instead of
+   * being sent. Deterministic opt-out confirmations bypass this — LGPD
+   * compliance never waits for a human.
+   */
+  supervisedMode?: boolean;
 }
 
 /** Anti-ban policy stored in channels.rate_policy (jsonb). Never global constants. */

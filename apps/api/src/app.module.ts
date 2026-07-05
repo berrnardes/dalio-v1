@@ -11,6 +11,7 @@ import { validateEnv } from './config/env';
 import { ConversationsModule } from './conversations/conversations.module';
 import { DbModule } from './db/db.module';
 import { HealthController } from './health/health.controller';
+import { InboxModule } from './inbox/inbox.module';
 import { OutboundModule } from './outbound/outbound.module';
 import { QueuesModule } from './queues/queues.module';
 import { SchedulingModule } from './scheduling/scheduling.module';
@@ -33,6 +34,7 @@ import { TranscriptionModule } from './transcription/transcription.module';
     ChannelsModule,
     ConversationsModule,
     OutboundModule,
+    InboxModule,
     TranscriptionModule,
     CatalogModule,
     SchedulingModule,

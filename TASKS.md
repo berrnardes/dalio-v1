@@ -43,13 +43,14 @@ Regra: fases em ordem (sequenciadas por risco — ver DOCUMENTO-EXECUTIVO §7 e 
 - [ ] Avaliação de QUALIDADE com LLM real (env-gated por `ANTHROPIC_API_KEY`; transcrições reais quando o piloto gerar dados)
 - [ ] Testes dedicados do outbound worker (FIFO sob contenção, caps) — pendência herdada da Fase 1
 
-## Fase 3 — Inbox de handoff (único canal humano — prioridade nº 1 do frontend)
+## Fase 3 — Inbox de handoff ✅ (2026-07-05; único canal humano — prioridade nº 1 do frontend)
 
-- [ ] Next.js + Better-auth + shadcn scaffold; seleção de clínica (organização)
-- [ ] Inbox ao vivo (SSE): lista de conversas, timeline, envio humano (auto-pausa do agente)
-- [ ] Pause/resume explícito; indicador de "agente ativo/pausado"
-- [ ] Modo supervisionado (agente rascunha, humano aprova — rampa de confiança do piloto)
-- [ ] Digest matinal (conversas da noite, agendamentos, pendências)
+- [x] Next.js + Better-auth + Tailwind v4/componentes shadcn-style; login + seleção de clínica (organização ativa; auto-seleção quando única)
+- [x] Inbox ao vivo (SSE via Redis pub/sub por clínica — eventos só com ids, conteúdo nunca no bus): lista de conversas com preview/badges, timeline com cursor uuidv7, envio humano (outbox `source='human'` + auto-pausa 8h)
+- [x] Pause/resume explícito; indicador "agente ativo/pausado" na lista e na thread
+- [x] Modo supervisionado (`clinics.settings.supervisedMode`): agente rascunha (`status='draft'`), humano aprova (draft→queued, guarded contra dupla aprovação) ou descarta (auditoria mantida); opt-out determinístico NUNCA espera aprovação; bug corrigido: histórico do agente agora é allowlist (drafts eram visíveis pelo blocklist antigo)
+- [x] Digest matinal (`GET /conversations/digest`): conversas da noite, agendamentos, handoffs pendentes, rascunhos — card expansível no inbox
+- [x] Testes: 11 de integração (Testcontainers, auth Better-auth REAL: sign-up→org→set-active→guards; SSE de ponta a ponta; outbound worker completa envios aprovados) + 4 unitários do modo supervisionado — 93 no total, tempestade verde
 
 ## Fase 4 — Motor anti-no-show
 
@@ -89,5 +90,5 @@ Regra: fases em ordem (sequenciadas por risco — ver DOCUMENTO-EXECUTIVO §7 e 
 - ~~`@thallesp/nestjs-better-auth`~~ — adotado (refactor de 2026-07-04)
 - ~~Modelos LLM por tier~~ — decidido: Haiku 4.5 (router/FAQ) + Opus 4.8 (booking), env-configurável; orçamento por clínica com alertas fica p/ Fase 7
 - Provedor de transcrição (Whisper self-hosted vs. API) — Fase 1 (provider Null no ar)
-- SSE vs. Supabase Realtime para o inbox — Fase 3
+- ~~SSE vs. Supabase Realtime~~ — decidido: SSE + Redis pub/sub (Supabase saiu da stack em 2026-07-04; WebSocket só se SSE ficar curto)
 - Fornecedor de proxies residenciais/móveis e de SIMs — Fase 6

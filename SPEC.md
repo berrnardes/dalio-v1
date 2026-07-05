@@ -140,7 +140,9 @@ messages = pgTable('messages', {
   intent: jsonb().$type<OutboundIntent>(), // outbound: a intenção estruturada original
   transcription: text(),                   // áudio → Whisper, preenchido no drain
   providerMessageId: text(),
-  status: deliveryStatus().default('queued'), // queued | sent | delivered | read | failed
+  status: deliveryStatus().default('queued'), // draft | discarded | queued | sent | delivered | read | failed
+                                           // draft/discarded: modo supervisionado (Fase 3) — rascunho do
+                                           // agente aguardando aprovação humana; só 'queued' entra no FIFO
   error: jsonb(),
   createdAt: timestamptz().defaultNow(),
 }, t => [
@@ -350,14 +352,16 @@ Auth: Better-auth (sessão via cookie; organização ativa = clínica). Prefixo 
 | Recurso | Endpoints |
 |---|---|
 | Webhooks | `POST /webhooks/waha` (HMAC) · `GET/POST /webhooks/cloud` (stub) |
-| Inbox | `GET /conversations?status=` · `GET /conversations/:id/messages` · `POST /conversations/:id/messages` (humano; auto-pausa) · `POST /conversations/:id/pause\|resume` |
+| Inbox | `GET /conversations?status=` · `GET /conversations/:id[/messages]` (cursor uuidv7 `?before=`) · `POST /conversations/:id/messages` (humano; auto-pausa 8h) · `POST /conversations/:id/pause\|resume` · `POST /conversations/:id/drafts/:messageId/approve\|reject` (modo supervisionado) · `GET /conversations/digest` (digest matinal, default últimas 16h) |
 | Agenda | CRUD `appointments`, `services`, `professionals` · `GET /availability?serviceId&date` |
 | Contatos | CRUD + import CSV · `POST /contacts/:id/optout` |
 | Campanhas | CRUD `campaigns` · `POST /campaigns/:id/start\|pause` · preview de segmento com supressões |
 | Canal | `GET /channel/status` · `POST /channel/pair` (QR — uso interno da operação) |
 | Métricas | `GET /metrics/summary?month=` — as métricas-herói em R$ |
 
-Tempo real do inbox: SSE (`GET /conversations/stream`) no v1; WebSocket se precisar.
+Tempo real do inbox (implementado na Fase 3): SSE (`GET /conversations/stream`), fan-out via Redis pub/sub (`inbox:events:{clinicId}`) para sobreviver a múltiplas instâncias da api. Eventos carregam SÓ ids (`InboxEvent` em `packages/shared`) — conteúdo nunca transita no bus; o dashboard invalida caches react-query e refaz o fetch pela REST autenticada.
+
+**Modo supervisionado (Fase 3, rampa de confiança do piloto):** `clinics.settings.supervisedMode` — respostas do agente viram `messages.status='draft'` aguardando aprovação no inbox (aprovar = draft→queued com update guardado contra corrida + entra no FIFO normal; descartar = draft→discarded, mantido como trilha de auditoria). A confirmação de opt-out determinístico NUNCA espera aprovação (LGPD). Drafts/discarded são invisíveis no histórico do agente (allowlist sent/delivered/read).
 
 ---
 

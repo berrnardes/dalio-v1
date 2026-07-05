@@ -6,9 +6,11 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { AIMessage, HumanMessage } from '@langchain/core/messages';
 import type { BaseMessage } from '@langchain/core/messages';
+import type { OutboundIntent } from '@dalio/shared';
 import { ContactsRepository } from '../conversations/contacts.repository';
 import { ConversationsRepository } from '../conversations/conversations.repository';
 import type { MessageRow } from '../conversations/conversations.repository';
+import { InboxEventsService } from '../inbox/inbox-events.service';
 import type { TurnHandler, TurnInput } from '../conversations/turn-handler';
 import { ServicesRepository } from '../catalog/services.repository';
 import { OutboxService } from '../outbound/outbox.service';
@@ -39,6 +41,7 @@ export class AgentTurnHandler implements TurnHandler {
     private readonly availability: AvailabilityService,
     private readonly appointmentsRepo: AppointmentsRepository,
     private readonly outbox: OutboxService,
+    private readonly inboxEvents: InboxEventsService,
   ) {}
 
   async handleTurn(input: TurnInput): Promise<void> {
@@ -116,15 +119,46 @@ export class AgentTurnHandler implements TurnHandler {
     // Sequential sends: the outbound worker enforces per-conversation FIFO,
     // but enqueueing in order keeps uuidv7 ids (the FIFO cursor) monotonic.
     for (const reply of result.replies) {
-      await this.outbox.send({
-        conversationId: conversation.id,
-        channelId: conversation.channelId,
-        intent: reply,
-        source: 'agent',
-      });
+      if (clinic.settings?.supervisedMode) {
+        // Supervised mode (Phase 3 — pilot trust ramp): the reply parks as a
+        // draft for the inbox to approve; nothing reaches WhatsApp until a
+        // human clicks. Deterministic opt-out above already sent directly —
+        // LGPD compliance never waits in an approval queue.
+        await this.saveDraft(input.clinicId, conversation.id, reply);
+      } else {
+        await this.outbox.send({
+          conversationId: conversation.id,
+          channelId: conversation.channelId,
+          intent: reply,
+          source: 'agent',
+        });
+      }
     }
   }
+
+  private async saveDraft(
+    clinicId: string,
+    conversationId: string,
+    intent: OutboundIntent,
+  ): Promise<void> {
+    const draft = await this.conversationsRepo.appendOutboundDraft({
+      conversationId,
+      kind: intent.kind === 'media' ? 'image' : intent.kind === 'template' ? 'template' : 'text',
+      intent,
+    });
+    // Drafts demand a human: surface them in the live inbox immediately.
+    await this.inboxEvents.publish(clinicId, {
+      type: 'message',
+      conversationId,
+      messageId: draft.id,
+    });
+  }
 }
+
+/** Statuses whose text actually reached (or will reach) the contact. An
+ *  ALLOWLIST on purpose: a blocklist silently leaked new statuses — drafts
+ *  and discarded replies must never appear as things the agent "said". */
+const DELIVERED_STATUSES = new Set(['sent', 'delivered', 'read']);
 
 /** messages rows → LangChain history. Inbound uses the transcription when the
  *  original was audio; outbound rows that never sent are invisible history. */
@@ -134,7 +168,7 @@ function toLangChainHistory(rows: MessageRow[]): BaseMessage[] {
     if (row.direction === 'inbound') {
       const text = row.transcription ?? row.body.text ?? row.body.caption ?? '[mídia recebida]';
       result.push(new HumanMessage(text));
-    } else if (row.status !== 'queued' && row.status !== 'failed' && row.body.text) {
+    } else if (DELIVERED_STATUSES.has(row.status) && row.body.text) {
       result.push(new AIMessage(row.body.text));
     }
   }

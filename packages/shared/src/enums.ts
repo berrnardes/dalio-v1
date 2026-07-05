@@ -53,7 +53,18 @@ export const MESSAGE_KINDS = [
 ] as const;
 export type MessageKind = (typeof MESSAGE_KINDS)[number];
 
-export const DELIVERY_STATUSES = ['queued', 'sent', 'delivered', 'read', 'failed'] as const;
+// 'draft'/'discarded' are supervised-mode states (Phase 3): the agent's reply
+// waits for human approval in the inbox. Only 'queued' enters the outbound
+// FIFO; drafts are invisible to the worker until approved (draft → queued).
+export const DELIVERY_STATUSES = [
+  'draft',
+  'discarded',
+  'queued',
+  'sent',
+  'delivered',
+  'read',
+  'failed',
+] as const;
 export type DeliveryStatus = (typeof DELIVERY_STATUSES)[number];
 
 export const APPOINTMENT_STATUSES = [
