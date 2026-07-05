@@ -115,7 +115,10 @@ beforeAll(async () => {
     status: 'connected',
   });
 
-  const { AppModule } = await import('../../src/app.module');
+  // Dynamic on purpose: ConfigModule.forRoot() validates env while the
+  // decorator evaluates at import time — the container env vars above must
+  // exist first. ('.js' extension per NodeNext convention; vite maps it.)
+  const { AppModule } = await import('../../src/app.module.js');
   const moduleRef = await Test.createTestingModule({ imports: [AppModule] })
     .overrideProvider(TURN_HANDLER)
     .useValue(recorder)

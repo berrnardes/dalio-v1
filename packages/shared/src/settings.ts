@@ -1,4 +1,4 @@
-import type { ChoiceOption } from './intents';
+import type { ChoiceOption } from './intents.js';
 
 /** Per-clinic configuration stored in clinics.settings (jsonb). */
 export interface ClinicSettings {

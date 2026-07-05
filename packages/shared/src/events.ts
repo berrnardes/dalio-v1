@@ -1,4 +1,4 @@
-import type { Provider } from './enums';
+import type { Provider } from './enums.js';
 
 export type InboundContent =
   | { kind: 'text'; text: string }

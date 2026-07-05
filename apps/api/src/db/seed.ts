@@ -5,9 +5,13 @@ config({ path: '../../.env' });
 config();
 
 import { randomUUID } from 'node:crypto';
+import { ConfigService } from '@nestjs/config';
 import { drizzle } from 'drizzle-orm/postgres-js';
 import { eq } from 'drizzle-orm';
 import postgres from 'postgres';
+// Static imports are safe here: nothing below reads env at import time —
+// ConfigService/createAuth only read it when invoked, after dotenv ran.
+import { createAuth } from '../auth/auth';
 import * as schema from './schema';
 
 const SEED_EMAIL = 'owner@dalio.dev';
@@ -28,8 +32,6 @@ async function main() {
   }
 
   // Create the auth user through better-auth so the password hash is correct.
-  const { ConfigService } = await import('@nestjs/config');
-  const { createAuth } = await import('../auth/auth');
   const configService = new ConfigService(process.env as Record<string, unknown>);
   const auth = createAuth(db, configService);
 

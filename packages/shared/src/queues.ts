@@ -2,8 +2,8 @@
 // shapes so the webhook producer (apps/api HTTP layer) and the BullMQ
 // workers never drift. reminders-scan and campaign-dispatch join in
 // Phases 4/6.
-import type { InboundMessageEvent } from './events';
-import type { Provider } from './enums';
+import type { InboundMessageEvent } from './events.js';
+import type { Provider } from './enums.js';
 
 export const QUEUES = {
   /** Webhook → normalization/buffering. jobId = msg:{sanitized providerMessageId} (dedupe layer 2). */
