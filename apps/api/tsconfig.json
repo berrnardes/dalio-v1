@@ -5,8 +5,7 @@
     "moduleResolution": "NodeNext",
     "experimentalDecorators": true,
     "emitDecoratorMetadata": true,
-    "outDir": "dist",
-    "baseUrl": "."
+    "outDir": "dist"
   },
   "include": ["src", "test", "drizzle.config.ts", "vitest.config.ts"]
 }
