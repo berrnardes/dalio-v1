@@ -42,7 +42,7 @@ Node via nvm (`nvm use` — .nvmrc pins v24). Copy `.env.example` → `.env` onc
 - `docker compose -f docker-compose.dev.yml up -d` — Postgres (host port **5433** — 5432 is taken by an unrelated container), Redis. Add `--profile waha` for WAHA.
 - `pnpm install` · `pnpm -r build` (shared must be built before running the api)
 - `pnpm dev` — containers + api (:3000) + web (:3100)
-- `pnpm lint` · `pnpm typecheck` · `pnpm test`
+- `pnpm lint` · `pnpm typecheck` · `pnpm test` (includes storm integration tests — they spin their own Postgres/Redis via testcontainers, so Docker must be running; ~30s)
 - `pnpm db:generate` · `pnpm db:migrate` · `pnpm db:seed` (idempotent; login owner@dalio.dev / dalio-dev-123)
 
 Gotchas:
@@ -51,3 +51,7 @@ Gotchas:
 - Auth integration is `@thallesp/nestjs-better-auth` with `disableGlobalAuthGuard: true`: AuthGuard and TenantGuard are registered explicitly in AppModule's providers array because APP_GUARD ordering across imported dynamic modules is not deterministic, and TenantGuard reads the `request.session` AuthGuard attaches. Routes are authenticated by default — opt out with `@AllowAnonymous()`.
 - Tenant ALS pattern: TenantContextMiddleware opens an empty store (`runEmpty`), TenantGuard fills it (`set`). A guard cannot `enterWith()` its own store — it dies when the guard's async frame returns. Workers use `run()` with the job's clinicId.
 - The auth module re-adds body parsers with `req.rawBody` enabled — the Phase 1 webhook HMAC must use `req.rawBody`, and `NestFactory.create` must keep `bodyParser: false`.
+- Vitest transforms with SWC (`unplugin-swc`), not esbuild: esbuild drops decorator metadata, so any test that boots the Nest container fails DI resolution without it.
+- DI tokens shared between a module and its own providers live in a separate file (see `queues/redis.token.ts`) — a circular import leaves the Symbol undefined at decoration time with a cryptic "can't resolve dependencies (?)" error.
+- BullMQ `removeOnComplete` retention keeps finished jobs (and their jobIds) as tombstones: any fixed-jobId scheduling pattern must remove completed/failed jobs before re-adding, or later adds are silent no-ops (see `BufferService.scheduleFlush` — found by the wave storm test).
+- `express` must stay a direct api dependency (pnpm strict layout; no phantom imports).

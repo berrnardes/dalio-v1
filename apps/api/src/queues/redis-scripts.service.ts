@@ -4,7 +4,7 @@
 import { Inject, Injectable, OnModuleDestroy } from '@nestjs/common';
 import type IORedis from 'ioredis';
 import type { BufferedMessage } from '@dalio/shared';
-import { REDIS } from './queues.module';
+import { REDIS } from './redis.token';
 
 /**
  * GET+DEL is racy: a slow worker could delete a lock the *next* holder

@@ -91,9 +91,18 @@ export class BufferService {
     if (existing) {
       const state = await existing.getState().catch(() => 'unknown');
       if (state === 'delayed' || state === 'waiting') {
-        // May still fail if it just started — benign, see the race note.
+        // Sliding window: replace the pending flush. May fail if it just
+        // started — benign, see the race note.
+        await existing.remove().catch(() => undefined);
+      } else if (state === 'completed' || state === 'failed') {
+        // removeOnComplete keeps finished jobs (with their jobId) for an
+        // hour — a TOMBSTONE that would make add() below a silent no-op and
+        // strand every later burst of this conversation (found by the wave
+        // storm test). Clear it so the new flush can exist.
         await existing.remove().catch(() => undefined);
       }
+      // 'active' is left alone: the running turn's drain-loop + the agent
+      // worker's post-release rescue own that window.
     }
 
     await this.agentQueue

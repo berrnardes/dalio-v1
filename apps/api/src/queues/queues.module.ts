@@ -7,8 +7,9 @@ import { ConfigService } from '@nestjs/config';
 import IORedis from 'ioredis';
 import { QUEUES } from '@dalio/shared';
 import { RedisScripts } from './redis-scripts.service';
+import { REDIS } from './redis.token';
 
-export const REDIS = Symbol('REDIS');
+export { REDIS } from './redis.token';
 
 const queueRegistrations = Object.values(QUEUES).map((name) =>
   BullModule.registerQueue({

@@ -17,18 +17,19 @@ Regra: fases em ordem (sequenciadas por risco — ver DOCUMENTO-EXECUTIVO §7 e 
 - [x] CI: lint + typecheck + testes em PR
 - [x] Preencher seção Commands do CLAUDE.md
 
-## Fase 1 — Pipeline de mensagens (o coração; gate: testes de tempestade verdes)
+## Fase 1 — Pipeline de mensagens ✅ (2026-07-04; gate de tempestade verde)
 
-- [ ] Webhook WAHA: HMAC, filtro de eventos (grupos fora), dedupe 2 camadas, enqueue-only ≤50ms
-- [ ] Worker `inbound`: normalização → canal → clínica → upsert contato → buffer Redis
-- [ ] Debounce: janela deslizante ~7s com teto 25s, flush job `flush:{convoId}`, typing indicator
-- [ ] Lock por conversa (token + TTL + compare-and-del Lua) com drain-loop; contenção re-enfileira
-- [ ] `WahaProvider` (send de `text`/`choice`/`template`/`media`; parse de replies de choice)
-- [ ] Fila `outbound` com outbox (linha em `messages` antes do envio), rate limit por canal, FIFO por conversa, jitter
-- [ ] Fila `transcription` (áudio → Whisper) integrada ao drain
-- [ ] Fila `session-health`: estados WAHA → alertas + auto-restart
-- [ ] **Testes de tempestade**: rajadas com jitter aleatório vs. WAHA fake (Testcontainers) cobrindo as 3 invariantes
-- [ ] Testes de contrato do `MessagingProvider` + stub `CloudApiProvider`
+- [x] Webhook WAHA: HMAC-SHA512 (fail-closed em prod), filtros (fromMe/grupos/broadcast/eventos), dedupe 2 camadas, enqueue-only
+- [x] Worker `inbound`: normalização → canal → clínica → upsert contato → mensagem (backstop de dedupe) → buffer Redis
+- [x] Debounce: janela deslizante (default 7s, por clínica) com teto 25s, flush job com limpeza de tombstone*, typing indicator 1×/rajada
+- [x] Lock por conversa (token + TTL 90s + compare-and-del Lua) com drain-loop e resgate pós-release; contenção re-enfileira
+- [x] `WahaProvider` (text/choice numerado/media; parse de replies; template recusado — resolve upstream) + registry por canal
+- [x] Fila `outbound` com outbox, FIFO por conversa (cursor uuidv7), gap com jitter por canal, cap diário só p/ proativos, gate `canContact`
+- [x] Fila `transcription` integrada ao buffer (provider Null até decisão Whisper — pendência abaixo)
+- [x] Fila `session-health`: status WAHA → `channels.status` + auto-restart em FAILED (alerta real: Fase 7)
+- [x] **Testes de tempestade** (Testcontainers, gate de merge): 3 invariantes E2E — encontraram 1 bug real (*tombstone de jobId completado estrangulava rajadas subsequentes)
+- [x] Testes de contrato do `MessagingProvider` (suíte compartilhada Waha+Cloud) + stub `CloudApiProvider` com janela de 24h real
+- [ ] Testes dedicados do outbound worker (FIFO sob contenção, caps) — cobrir na Fase 2 junto com o primeiro fluxo que envia de verdade
 
 ## Fase 2 — Agente + calendário nativo (o demo que vende)
 
