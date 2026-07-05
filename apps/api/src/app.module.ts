@@ -12,6 +12,7 @@ import { ConversationsModule } from './conversations/conversations.module';
 import { DbModule } from './db/db.module';
 import { HealthController } from './health/health.controller';
 import { InboxModule } from './inbox/inbox.module';
+import { MetricsModule } from './metrics/metrics.module';
 import { OutboundModule } from './outbound/outbound.module';
 import { QueuesModule } from './queues/queues.module';
 import { RemindersModule } from './reminders/reminders.module';
@@ -40,6 +41,7 @@ import { TranscriptionModule } from './transcription/transcription.module';
     CatalogModule,
     SchedulingModule,
     RemindersModule,
+    MetricsModule,
     AgentModule,
   ],
   controllers: [HealthController],

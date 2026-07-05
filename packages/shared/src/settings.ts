@@ -18,6 +18,13 @@ export interface ClinicSettings {
    * compliance never waits for a human.
    */
   supervisedMode?: boolean;
+  /**
+   * Baseline no-show rate (percent, default 20 — sector runs 15–30%) used to
+   * ESTIMATE recovered-no-show revenue on the metrics dashboard: of the
+   * appointments confirmed via reminder, this share would statistically have
+   * become empty chairs. An estimate label in the UI, never billed truth.
+   */
+  noShowRatePct?: number;
 }
 
 /** Anti-ban policy stored in channels.rate_policy (jsonb). Never global constants. */

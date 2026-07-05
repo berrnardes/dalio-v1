@@ -62,10 +62,11 @@ Regra: fases em ordem (sequenciadas por risco — ver DOCUMENTO-EXECUTIVO §7 e 
 - [x] Janela de envio da clínica respeitada no scanner (`settings.sendWindow`, default 08:00–20:00 no fuso da clínica) — deferimento, nunca descarte
 - [x] Testes: 10 unitários (cadência/parse/janela/cancel) + 6 de integração (scanner→confirmação armada, deferimento fora da janela, opt-out cancela sem enviar, "1" confirma sem LLM, backfill da waitlist, cap diário do outbound worker) — resolve a pendência herdada da Fase 1/2
 
-## Fase 5 — Dashboard de métricas em R$
+## Fase 5 — Dashboard de métricas em R$ ✅ (2026-07-05)
 
-- [ ] `GET /metrics/summary`: no-shows recuperados, tempo mediano de 1ª resposta, leads fora do horário, agendamentos autônomos — cada um com estimativa em R$
-- [ ] Telas no dashboard (métricas-herói) — o argumento de renovação
+- [x] `GET /metrics/summary?month=`: agendamentos autônomos (R$ real), no-shows evitados (confirmados-após-lembrete × `noShowRatePct`, default 20% — estimativa rotulada), tempo mediano de 1ª resposta + % <60s (só conversas iniciadas pelo lead), leads fora do horário + conversão em R$ — tudo on-read sobre as tabelas de domínio, fronteiras de mês no fuso da clínica
+- [x] Tela `/metrics` no dashboard: 4 cards-herói em R$ + seletor de mês + badge "estimativa"; header compartilhado com navegação Inbox↔Métricas
+- [x] Testes: 10 unitários (fronteiras de mês, classificador fora-do-horário, mediana) + 2 de integração (SQL real sobre mês semeado, mês vazio) — boot leve só com Postgres (motor é read-only; se precisar de fila, virou write path indevido)
 
 ## Fase 6 — Módulo de números + reativação (por último, sobre infra provada)
 

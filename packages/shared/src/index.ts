@@ -4,4 +4,5 @@ export * from './events.js';
 export * from './settings.js';
 export * from './inbox.js';
 export * from './reminders.js';
+export * from './metrics.js';
 export * from './queues.js';

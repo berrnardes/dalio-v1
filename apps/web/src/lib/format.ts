@@ -62,6 +62,23 @@ export function messageText(message: Message): string {
   }
 }
 
+/** Integer cents → "R$ 1.234" (whole reais — hero metrics don't need centavos). */
+export function formatBRL(cents: number): string {
+  return new Intl.NumberFormat('pt-BR', {
+    style: 'currency',
+    currency: 'BRL',
+    maximumFractionDigits: 0,
+  }).format(cents / 100);
+}
+
+/** Seconds → compact pt-BR duration: "42s", "3min", "1h 12min". */
+export function formatDuration(seconds: number): string {
+  if (seconds < 60) return `${Math.round(seconds)}s`;
+  const minutes = Math.round(seconds / 60);
+  if (minutes < 60) return `${minutes}min`;
+  return `${Math.floor(minutes / 60)}h ${minutes % 60}min`;
+}
+
 export function isPaused(pausedUntil: string | null): boolean {
   return pausedUntil !== null && new Date(pausedUntil) > new Date();
 }
