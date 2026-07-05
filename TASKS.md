@@ -83,6 +83,7 @@ Regra: fases em ordem (sequenciadas por risco — ver DOCUMENTO-EXECUTIVO §7 e 
 
 ## Decisões pendentes (resolver quando a fase chegar)
 
+- Avaliar `@thallesp/nestjs-better-auth` (guards/decorators idiomáticos p/ Nest) vs. o mount manual atual — Fase 1
 - Provedor de transcrição (Whisper self-hosted vs. API) — Fase 1
 - Modelos LLM específicos por tier e orçamentos por clínica — Fase 2
 - SSE vs. Supabase Realtime para o inbox — Fase 3

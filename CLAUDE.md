@@ -23,6 +23,10 @@ pnpm monorepo: `apps/api` (NestJS + BullMQ + Drizzle + LangGraph), `apps/web` (N
 7. **No message content in application logs.** Content lives in Postgres and self-hosted Langfuse only (LGPD — conversations contain sensitive health data).
 8. **Contact identity is the E.164 phone per clinic**, never provider IDs. `providerMessageId` is stored alongside our IDs, never used as one.
 
+## Code documentation (required per feature — SPEC §6.1)
+
+Every feature ships with comprehensive comments, in English, at three levels: (1) a file/module header stating purpose, architectural role, and the SPEC/executive-doc section it implements; (2) JSDoc on all public APIs (services, repositories, controllers, shared types) covering what it does and *why it exists* — the business rule or risk it serves; (3) inline comments in dense logic (pipeline, locks, state machines, agent graph, anti-ban) explaining the invariant being protected and what breaks without it. Comments state intent and constraints — never narrate the obvious line below. A stale comment is a bug: update it in the same commit as the code. A feature without this standard is not done.
+
 ## Conventions
 
 - User-facing copy (messages, dashboard) in pt-BR; code, comments, commits in English.

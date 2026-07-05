@@ -325,6 +325,16 @@ Regras invioláveis: nunca aconselhamento médico/clínico (→ `handoff`); fora
 - **Handoff:** `pausedUntil` na conversa; o inbox é o único canal humano (número é da empresa — não existe `fromMe` da clínica). Envio humano pelo inbox pausa o agente automaticamente.
 - **LGPD:** todo envio outbound passa pelo gate `canContact(contact)` (opt-out, consentimento, frequência por contato). Conteúdo de mensagem não vai para logs de aplicação — só DB e Langfuse (self-hosted).
 
+### 6.1 Padrão de documentação de código (obrigatório por feature)
+
+Toda feature entregue deve carregar comentários abrangentes, em inglês, nestes três níveis:
+
+1. **Cabeçalho de arquivo/módulo** — o que o módulo faz, seu papel na arquitetura e referência à seção do SPEC/DOCUMENTO-EXECUTIVO que o justifica (ex.: `// Debounce buffer — SPEC §4.4 invariant 2`).
+2. **JSDoc em toda API pública** — services, repositórios, controllers, funções exportadas e tipos do `packages/shared`: o que faz, **por quê existe** (a regra de negócio ou risco que atende) e parâmetros/retornos quando não óbvios.
+3. **Inline nos trechos densos** — pipeline, locks, máquinas de estado, grafo do agente, regras anti-ban: explicar a invariante protegida e as consequências de quebrá-la, não parafrasear a linha seguinte.
+
+Regras: comentários explicam *intenção e restrição*, nunca narram o óbvio; comentário desatualizado é tratado como bug (atualiza junto com o código no mesmo commit); PRs/fases não são consideradas completas sem este padrão.
+
 ---
 
 ## 7. Superfície de API (dashboard)
