@@ -17,7 +17,16 @@ export class CanContactService {
     if (!PROACTIVE_SOURCES.has(source)) return { allowed: true };
 
     if (contact.optOutAt) return { allowed: false, reason: 'opt_out' };
-    // Per-contact frequency caps join in Phase 6 (campaign suppression rules).
+
+    // Marketing needs CONSENT, not just absence-of-refusal (LGPD, Phase 7):
+    // campaigns require consentAt — stamped when the contact first wrote in,
+    // when the clinic asserted consent on CSV import, or explicitly via
+    // POST /contacts/:id/consent. Reminders ride on the appointment
+    // relationship (contract performance) and are not consent-gated here;
+    // per-contact frequency lives in the campaign suppression rules (§4.7).
+    if (source === 'campaign' && !contact.consentAt) {
+      return { allowed: false, reason: 'no_consent' };
+    }
     return { allowed: true };
   }
 }

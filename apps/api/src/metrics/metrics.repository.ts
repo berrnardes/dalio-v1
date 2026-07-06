@@ -110,6 +110,24 @@ export class MetricsRepository extends TenantScopedRepository {
   }
 
   /**
+   * Pilot scorecard input (Phase 7): the month's DECIDED appointments — the
+   * denominator is completed+no_show (a scheduled/confirmed future slot
+   * hasn't had the chance to no-show yet, counting it would flatter the rate).
+   */
+  async noShowOutcomes(range: MonthRange): Promise<{ noShows: number; decided: number }> {
+    const rows = await this.db.execute(sql`
+      select
+        count(*) filter (where a.status = 'no_show')::int as "noShows",
+        count(*)::int as decided
+      from appointments a
+      where a.clinic_id = ${this.clinicId}
+        and a.status in ('completed', 'no_show')
+        and a.starts_at >= ${range.start.toISOString()}::timestamptz and a.starts_at < ${range.end.toISOString()}::timestamptz
+    `);
+    return rows[0] as { noShows: number; decided: number };
+  }
+
+  /**
    * Hero metric #5 (Phase 6) — reactivated clients: campaign sends that
    * converted into an appointment CREATED in the month, valued at the booked
    * service's price. Excludes cancelled/no-show like every captured-revenue

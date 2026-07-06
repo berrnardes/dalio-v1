@@ -25,7 +25,34 @@ export interface ClinicSettings {
    * become empty chairs. An estimate label in the UI, never billed truth.
    */
   noShowRatePct?: number;
+  /**
+   * Onboarding checklist (Phase 7 — DEPLOYMENT.md §6): a clinic only
+   * activates with everything true. Each item is a real adoption
+   * prerequisite: without the redirect swap the agent gets no leads; without
+   * inbox training handoffs rot; without a catalog the agent can't quote.
+   */
+  onboarding?: {
+    redirectInBio?: boolean;
+    adsUpdated?: boolean;
+    inboxTrained?: boolean;
+    catalogFilled?: boolean;
+  };
+  /** Pilot success targets (Phase 7) — the monthly design-partner scorecard. */
+  pilotGoals?: {
+    noShowRatePctMax?: number;
+    underSixtySecondsPctMin?: number;
+    autonomousBookingsMin?: number;
+  };
 }
+
+/** Keys of the onboarding checklist, in onboarding-conversation order. */
+export const ONBOARDING_ITEMS = [
+  'redirectInBio',
+  'adsUpdated',
+  'inboxTrained',
+  'catalogFilled',
+] as const;
+export type OnboardingItem = (typeof ONBOARDING_ITEMS)[number];
 
 /** Anti-ban policy stored in channels.rate_policy (jsonb). Never global constants. */
 export interface RatePolicy {

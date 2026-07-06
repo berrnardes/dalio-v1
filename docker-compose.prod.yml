@@ -1,0 +1,66 @@
+# Production topology — Phase 7 (DEPLOYMENT.md). One Hetzner box runs the
+# control plane (api, postgres, redis); WAHA containers are per-clinic
+# (hybrid isolation — DOCUMENTO-EXECUTIVO §2) and are provisioned by ops as
+# `waha-<clinic-slug>` services alongside, each with its own proxy.
+# Coolify can consume this file directly; secrets come from the environment
+# (.env.production.example lists them all).
+services:
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    restart: unless-stopped
+    env_file: .env.production
+    ports:
+      - '127.0.0.1:3000:3000' # reverse proxy (Coolify/Traefik) terminates TLS
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -qO- http://localhost:3000/health || exit 1']
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?}
+      POSTGRES_DB: ${POSTGRES_DB:-dalio}
+    # WAL archiving via pgBackRest → Hetzner Storage Box (SFTP repo).
+    # ops/pgbackrest/pgbackrest.conf is the single source for repo settings;
+    # PITR restore is REHEARSED with ops/backup/pitr-rehearsal.sh (see
+    # DEPLOYMENT.md — a backup that never restored is a hope, not a backup).
+    command:
+      - postgres
+      - -c
+      - archive_mode=on
+      - -c
+      - archive_command=pgbackrest --stanza=dalio archive-push %p
+      - -c
+      - wal_level=replica
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./ops/pgbackrest/pgbackrest.conf:/etc/pgbackrest/pgbackrest.conf:ro
+      - pgbackrest-spool:/var/spool/pgbackrest
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U $${POSTGRES_USER}']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    volumes:
+      - redisdata:/data
+
+volumes:
+  pgdata:
+  redisdata:
+  pgbackrest-spool:

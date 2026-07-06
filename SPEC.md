@@ -373,11 +373,12 @@ Auth: Better-auth (sessão via cookie; organização ativa = clínica). Prefixo 
 | Webhooks | `POST /webhooks/waha` (HMAC) · `GET/POST /webhooks/cloud` (stub) |
 | Inbox | `GET /conversations?status=` · `GET /conversations/:id[/messages]` (cursor uuidv7 `?before=`) · `POST /conversations/:id/messages` (humano; auto-pausa 8h) · `POST /conversations/:id/pause\|resume` · `POST /conversations/:id/drafts/:messageId/approve\|reject` (modo supervisionado) · `GET /conversations/digest` (digest matinal, default últimas 16h) |
 | Agenda | `GET /availability?serviceId&date` · `GET /appointments` · `POST /appointments` · `POST /appointments/:id/confirm\|cancel\|no-show\|complete` (escritas via `AppointmentLifecycleService` — §4.6) · `POST /waitlist` · `GET/POST /professionals` · CRUD `services` |
-| Contatos | CRUD + import CSV · `POST /contacts/:id/optout` |
+| Contatos | `GET /contacts` · `POST /contacts/import` (CSV `telefone[,nome]`, com asserção `consent` da clínica — LGPD) · `POST /contacts/:id/optout\|consent` · `DELETE /contacts/:id` (exclusão LGPD: tombstone + expurgo de conteúdo — Fase 7) |
+| Clínica | `GET/PUT /clinic/onboarding` (checklist) · `POST /clinic/activate` (gate: checklist verde + canal conectado — Fase 7) |
 | Campanhas | `GET/POST /campaigns` · `POST /campaigns/preview` (segmento com supressões, dry-run) · `POST /campaigns/:id/start\|pause` (start = snapshot; §4.7) |
 | Canal | `GET /channel/status` · `POST /channel/pair` (QR — uso interno da operação) |
 | Números | `GET/POST /numbers` · `POST /numbers/:id/transition` · `POST /numbers/:id/replace` (runbook de ban) — operação interna, frota da empresa · **público:** `GET /wa/:slug` → 302 `wa.me/<número ativo>` |
-| Métricas | `GET /metrics/summary?month=` — as métricas-herói em R$ |
+| Métricas | `GET /metrics/summary?month=` — as métricas-herói em R$ · `GET /metrics/pilot?month=` — metas do piloto vs. realizado (Fase 7) |
 
 Tempo real do inbox (implementado na Fase 3): SSE (`GET /conversations/stream`), fan-out via Redis pub/sub (`inbox:events:{clinicId}`) para sobreviver a múltiplas instâncias da api. Eventos carregam SÓ ids (`InboxEvent` em `packages/shared`) — conteúdo nunca transita no bus; o dashboard invalida caches react-query e refaz o fetch pela REST autenticada.
 
@@ -390,7 +391,10 @@ Tempo real do inbox (implementado na Fase 3): SSE (`GET /conversations/stream`),
 ## 8. Observabilidade e dev
 
 - **LangSmith** (nativo do LangChain/LangGraph, zero-config via env `LANGSMITH_TRACING`/`LANGSMITH_API_KEY`) — trace de todo turno do agente; custo por clínica alimenta `usage_counters`. **LGPD:** workspace na região EU, DPA assinado com a LangChain Inc. e masking de PII configurado onde viável; a proibição de conteúdo de mensagem em logs de aplicação permanece — LangSmith é o único destino externo autorizado de traces. Projetos separados por ambiente (dev/prod) e tag `clinic_id` em todo trace para depurar por tenant.
-- Bull Board em rota interna autenticada; métrica de lag enqueue→processing como gauge de backpressure.
-- Sentry (api + web). Health: `GET /health` (DB, Redis, sessões WAHA conectadas vs. esperadas).
+- Bull Board (Fase 7): `/internal/queues` — montado como middleware express (fora da cadeia de guards do Nest), por isso com gate próprio: basic auth `ops:<BULL_BOARD_PASSWORD>`; sem a env, a rota não existe.
+- Sentry api + web (Fase 7): init env-gated (`SENTRY_DSN` / `NEXT_PUBLIC_SENTRY_DSN`), `sendDefaultPii: false`, sem session replay (o dashboard exibe conteúdo de conversa — replay vazaria PII de saúde). Conteúdo de mensagem continua fora de qualquer telemetria (regra de ferro #7).
+- Health (Fase 7): `GET /health` — db, redis, canais conectados vs. esperados (clínicas ativas), e por fila observada (inbound/agent/outbound) waiting + idade do job mais antigo — o gauge de lag enqueue→processing.
+- Alertas (Fase 7): `ALERT_WEBHOOK_URL` (formato Slack/Discord/ntfy) — sessão FAILED (com resultado do auto-restart), número degradado, canário caindo (campanhas já pausadas), pool de standby vazio. Payload só com ids/estados, nunca conteúdo. Fire-and-forget com timeout: alerta nunca derruba quem alertou.
+- Deploy/backup: `DEPLOYMENT.md` + `ops/` — pgBackRest → Hetzner Storage Box (SFTP), full semanal + diff diário + WAL contínuo; **ensaio de restore PITR mensal via `ops/backup/pitr-rehearsal.sh`** (restaura num container descartável e prova os dados).
 - Testes: Vitest; **testes de tempestade do pipeline** (rajadas com jitter aleatório contra WAHA fake via Testcontainers) são o gate de merge das Fases 0–1.
 - CI (GitHub Actions): lint + typecheck + testes em PR; build de imagem + deploy (Coolify/Kamal) em merge na `main`.

@@ -148,6 +148,9 @@ async function seedContact(name = 'Cliente') {
       clinicId,
       name,
       phone: `+5511${Math.floor(Math.random() * 1e9).toString().padStart(9, '0')}`,
+      // Reactivation targets are past customers who consented (Phase 7: the
+      // canContact gate fails campaign sends without consentAt).
+      consentAt: new Date(),
     })
     .returning();
   return c!;

@@ -4,6 +4,7 @@ import { APP_GUARD } from '@nestjs/core';
 import { ConfigModule } from '@nestjs/config';
 import { AuthGuard } from '@thallesp/nestjs-better-auth';
 import { AgentModule } from './agent/agent.module';
+import { AlertsModule } from './alerts/alerts.module';
 import { AuthModule } from './auth/auth.module';
 import { CampaignsModule } from './campaigns/campaigns.module';
 import { CatalogModule } from './catalog/catalog.module';
@@ -33,6 +34,7 @@ import { TranscriptionModule } from './transcription/transcription.module';
     }),
     DbModule,
     AuthModule,
+    AlertsModule,
     TenancyModule,
     QueuesModule,
     ChannelsModule,

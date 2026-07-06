@@ -4,8 +4,8 @@
 // one deliberate estimate (recovered no-shows × baseline rate), which is the
 // renewal argument and must stay labeled as an estimate, never as billing.
 import { Injectable } from '@nestjs/common';
-import type { MetricsSummary } from '@dalio/shared';
-import { DEFAULT_NO_SHOW_RATE_PCT } from '@dalio/shared';
+import type { MetricsSummary, PilotStatus } from '@dalio/shared';
+import { DEFAULT_NO_SHOW_RATE_PCT, DEFAULT_PILOT_GOALS } from '@dalio/shared';
 import { ClinicsRepository } from '../scheduling/clinics.repository';
 import { MetricsRepository } from './metrics.repository';
 import type { LeadConversation } from './metrics.repository';
@@ -53,6 +53,46 @@ export class MetricsService {
       firstResponse: firstResponseStats(leads),
       afterHoursLeads: { count: afterHours.length, convertedCount: converted.count, cents: converted.cents },
       reactivatedClients: reactivated,
+    };
+  }
+
+  /**
+   * Pilot scorecard (Phase 7 — DEPLOYMENT.md §7): the month's actuals vs the
+   * clinic's pilot goals. `met: null` when there is no data to judge yet —
+   * an empty month must read as "no data", never as "goal met".
+   */
+  async pilotStatus(month: string): Promise<PilotStatus> {
+    const clinic = await this.clinicsRepo.getCurrent();
+    const range = monthRangeUtc(month, clinic.timezone);
+    const goals = { ...DEFAULT_PILOT_GOALS, ...clinic.settings?.pilotGoals };
+
+    const [outcomes, leads, bookings] = await Promise.all([
+      this.metricsRepo.noShowOutcomes(range),
+      this.metricsRepo.leadConversations(range),
+      this.metricsRepo.agentBookings(range),
+    ]);
+
+    const noShowRate =
+      outcomes.decided > 0 ? Math.round((outcomes.noShows / outcomes.decided) * 100) : null;
+    const under60 = firstResponseStats(leads).underSixtySecondsPct;
+
+    return {
+      month,
+      noShowRatePct: {
+        goal: goals.noShowRatePctMax,
+        actual: noShowRate,
+        met: noShowRate === null ? null : noShowRate <= goals.noShowRatePctMax,
+      },
+      underSixtySecondsPct: {
+        goal: goals.underSixtySecondsPctMin,
+        actual: under60,
+        met: under60 === null ? null : under60 >= goals.underSixtySecondsPctMin,
+      },
+      autonomousBookings: {
+        goal: goals.autonomousBookingsMin,
+        actual: bookings.count,
+        met: bookings.count >= goals.autonomousBookingsMin,
+      },
     };
   }
 }

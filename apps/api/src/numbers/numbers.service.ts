@@ -5,6 +5,7 @@
 // this service's job is restoring reachability fast.
 import { Injectable, Logger } from '@nestjs/common';
 import type { NumberState } from '@dalio/shared';
+import { AlertsService } from '../alerts/alerts.service';
 import { CampaignsFleetRepository } from '../campaigns/campaigns-fleet.repository';
 import {
   DEGRADED_SCORE_THRESHOLD,
@@ -27,6 +28,7 @@ export class NumbersService {
   constructor(
     private readonly numbersRepo: NumbersRepository,
     private readonly campaignsFleet: CampaignsFleetRepository,
+    private readonly alerts: AlertsService,
   ) {}
 
   /** Guarded transition: illegal moves throw — a state machine that can be
@@ -98,9 +100,13 @@ export class NumbersService {
 
     const standby = await this.numbersRepo.findOldestUnassignedStandby();
     if (!standby) {
-      this.logger.error(
-        `NO STANDBY NUMBER AVAILABLE to replace ${banned.phone} (clinic ${clinicId}) — clinic is unreachable until a SIM is provisioned`,
-      );
+      // The alert that must never fire (DEPLOYMENT.md §4): the pool exists
+      // precisely so a ban is hours of downtime, not weeks of warm-up.
+      await this.alerts.raise({
+        kind: 'standby_pool_empty',
+        bannedPhone: banned.phone,
+        clinicId,
+      });
       return null;
     }
 
@@ -136,9 +142,7 @@ export class NumbersService {
     ) {
       const degraded = await this.numbersRepo.transition(number.id, number.state, 'degraded');
       if (degraded) {
-        this.logger.error(
-          `Number ${number.phone} degraded (score ${score}) — review for replacement (POST /api/v1/numbers/${number.id}/replace)`,
-        );
+        await this.alerts.raise({ kind: 'number_degraded', phone: number.phone, score });
         await this.alarmIfCanary(degraded);
       }
     }
@@ -153,9 +157,11 @@ export class NumbersService {
   private async alarmIfCanary(number: NumberRow): Promise<void> {
     if (!number.isCanary) return;
     const paused = await this.campaignsFleet.pauseAllRunning();
-    this.logger.error(
-      `CANARY DOWN (${number.phone}, state ${number.state}) — possible Meta detection wave. ` +
-        `Paused ${paused} running campaign(s) fleet-wide. Hold all reactivation until reviewed.`,
-    );
+    await this.alerts.raise({
+      kind: 'canary_down',
+      phone: number.phone,
+      state: number.state,
+      campaignsPaused: paused,
+    });
   }
 }

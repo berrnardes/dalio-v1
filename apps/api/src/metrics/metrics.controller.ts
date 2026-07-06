@@ -17,10 +17,19 @@ export class MetricsController {
 
   @Get('summary')
   async summary(@Query('month') month?: string): Promise<MetricsSummary> {
+    return this.metrics.summary(await this.resolveMonth(month));
+  }
+
+  /** Pilot scorecard (Phase 7): goals vs actuals — the design-partner agenda. */
+  @Get('pilot')
+  async pilot(@Query('month') month?: string) {
+    return this.metrics.pilotStatus(await this.resolveMonth(month));
+  }
+
+  private async resolveMonth(month?: string): Promise<string> {
     if (month !== undefined && !isValidMonth(month)) {
       throw new BadRequestException('month must be YYYY-MM');
     }
-    const resolved = month ?? currentMonth((await this.clinicsRepo.getCurrent()).timezone);
-    return this.metrics.summary(resolved);
+    return month ?? currentMonth((await this.clinicsRepo.getCurrent()).timezone);
   }
 }

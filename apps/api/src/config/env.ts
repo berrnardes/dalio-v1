@@ -20,6 +20,12 @@ export const envSchema = z.object({
   ANTHROPIC_API_KEY: z.string().min(1).optional(),
   AGENT_ROUTER_MODEL: z.string().min(1).default('claude-haiku-4-5'),
   AGENT_BOOKING_MODEL: z.string().min(1).default('claude-opus-4-8'),
+
+  // Observability & ops (Phase 7) — every one optional: the feature is
+  // simply off when unset, so dev/test boot with zero extra config.
+  SENTRY_DSN: z.string().min(1).optional(),
+  BULL_BOARD_PASSWORD: z.string().min(8).optional(),
+  ALERT_WEBHOOK_URL: z.string().url().optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;

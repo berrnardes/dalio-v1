@@ -49,3 +49,29 @@ export interface MetricsSummary {
    */
   reactivatedClients: { count: number; cents: number };
 }
+
+/**
+ * Pilot targets when clinics.settings.pilotGoals is unset (Phase 7). The
+ * numbers the pitch made: cut no-shows to single digits, answer leads inside
+ * a minute, book a meaningful volume without a human.
+ */
+export const DEFAULT_PILOT_GOALS = {
+  noShowRatePctMax: 10,
+  underSixtySecondsPctMin: 80,
+  autonomousBookingsMin: 20,
+} as const;
+
+/** One pilot goal vs the month's actual — `met: null` means no data yet. */
+export interface PilotGoalStatus {
+  goal: number;
+  actual: number | null;
+  met: boolean | null;
+}
+
+/** The monthly design-partner scorecard (GET /metrics/pilot). */
+export interface PilotStatus {
+  month: string;
+  noShowRatePct: PilotGoalStatus;
+  underSixtySecondsPct: PilotGoalStatus;
+  autonomousBookings: PilotGoalStatus;
+}

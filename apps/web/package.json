@@ -9,6 +9,7 @@
   },
   "dependencies": {
     "@dalio/shared": "workspace:*",
+    "@sentry/nextjs": "^10.63.0",
     "@tanstack/react-query": "^5.101.2",
     "axios": "^1.18.1",
     "better-auth": "^1.3.0",

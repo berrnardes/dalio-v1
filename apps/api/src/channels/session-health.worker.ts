@@ -7,6 +7,7 @@ import { Logger } from '@nestjs/common';
 import type { Job } from 'bullmq';
 import { QUEUES } from '@dalio/shared';
 import type { SessionHealthJob } from '@dalio/shared';
+import { AlertsService } from '../alerts/alerts.service';
 import { NumbersService } from '../numbers/numbers.service';
 import { ChannelsRepository } from './channels.repository';
 import { WahaApiClient } from './providers/waha-api.client';
@@ -28,6 +29,7 @@ export class SessionHealthWorker extends WorkerHost {
     private readonly channelsRepo: ChannelsRepository,
     private readonly wahaApi: WahaApiClient,
     private readonly numbers: NumbersService,
+    private readonly alerts: AlertsService,
   ) {
     super();
   }
@@ -53,6 +55,7 @@ export class SessionHealthWorker extends WorkerHost {
       // quality score hard; repeated failures degrade it and page ops (and a
       // failing CANARY pauses all campaigns — see NumbersService).
       if (channel) await this.numbers.recordSessionFailure(channel.id).catch(() => undefined);
+      let restarted = true;
       try {
         await this.wahaApi.post(
           `/api/sessions/${channelExternalId}/restart`,
@@ -60,8 +63,12 @@ export class SessionHealthWorker extends WorkerHost {
           channel?.host,
         );
       } catch (err) {
+        restarted = false;
         this.logger.error(`Auto-restart failed for ${channelExternalId}: ${String(err)}`);
       }
+      // Real alert (Phase 7): a clinic is unreachable right now — that's a
+      // page, not a log line someone might read tomorrow.
+      await this.alerts.raise({ kind: 'session_failed', channelExternalId, restarted });
     }
   }
 }

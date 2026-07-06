@@ -9,11 +9,13 @@ import { ChannelsModule } from '../channels/channels.module';
 import { InboxEventsModule } from '../inbox/inbox-events.module';
 import { AgentWorker } from './agent.worker';
 import { BufferService } from './buffer.service';
+import { ContactsController } from './contacts.controller';
 import { InboundWorker } from './inbound.worker';
 import { MessagingDataModule } from './messaging-data.module';
 
 @Module({
   imports: [ChannelsModule, MessagingDataModule, AgentModule, InboxEventsModule],
+  controllers: [ContactsController],
   providers: [BufferService, InboundWorker, AgentWorker],
   exports: [BufferService, MessagingDataModule],
 })

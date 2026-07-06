@@ -78,13 +78,16 @@ Regra: fases em ordem (sequenciadas por risco — ver DOCUMENTO-EXECUTIVO §7 e 
 - [x] Conversão campanha → appointment: `repliedAt` no turno + `convertedAppointmentId` no `lifecycle.book` (janela 30d) → métrica-herói "clientes reativados" em R$ no dashboard (5º card)
 - [x] Testes: 11 unitários (máquina de estados, rampa, score, drip) + 10 de integração (segmento+supressões, drip 1/tick, re-supressão, exaustão→done, atribuição via lifecycle, ban swap, canário kill-switch, warm-up, redirect 302/404) — 146 no total, tempestade verde
 
-## Fase 7 — Endurecimento para o beta
+## Fase 7 — Endurecimento para o beta 🟡 (código 2026-07-06; operação manual pendente — DEPLOYMENT.md)
 
-- [ ] Deploy Hetzner (Coolify/Kamal) + Vercel; Postgres prod auto-hospedado com pgBackRest/WAL-G → Hetzner Storage Box; **restore de PITR ensaiado de verdade, não só configurado**
-- [ ] Sentry, Bull Board, health checks, alertas de sessão
-- [ ] LGPD: captura de consentimento, exclusão de dados, DPA + ToS (revisão jurídica externa)
-- [ ] Checklist de onboarding por clínica (redirect na bio, anúncios, treino do inbox, catálogo) — clínica só ativa com checklist verde
-- [ ] Definir e instrumentar métricas de sucesso do piloto (metas de no-show, <60s, agendamentos/mês)
+- [x] Artefatos de deploy: `apps/api/Dockerfile` (multi-stage, migrations no boot via `dist/db/migrate.js`), `docker-compose.prod.yml`, `.env.production.example`, `ops/pgbackrest/` (repo SFTP → Storage Box) + `ops/backup/pitr-rehearsal.sh` (ensaio de restore executável em container descartável) + `DEPLOYMENT.md`
+- [ ] **[manual]** Provisionar Hetzner/Coolify + Vercel, criar stanza pgBackRest e **executar o 1º ensaio de PITR** (registrar em DEPLOYMENT.md §3.3)
+- [x] Sentry api+web (env-gated, sem PII, replays off), Bull Board em `/internal/queues` (basic auth por env; sem senha a rota não existe), `/health` estendido (db, redis, canais conectados vs esperados, filas com waiting + idade do job mais antigo), alertas reais via `ALERT_WEBHOOK_URL` (sessão FAILED, número degradado, canário caindo, pool de standby vazio)
+- [x] LGPD: consentimento capturado (1º inbound; import CSV com asserção da clínica; `POST /contacts/:id/consent`), campanhas exigem `consentAt` no `canContact` (`no_consent`), exclusão via `DELETE /contacts/:id` (tombstone + expurgo de conteúdo/transcrições + limpeza de envios pendentes; skeleton contábil fica)
+- [ ] **[manual]** DPA LangSmith/Anthropic assinados + ToS com divulgação do canal não-oficial — revisão jurídica externa
+- [x] Checklist de onboarding (`GET/PUT /clinic/onboarding`) + gate mecânico: `POST /clinic/activate` recusa sem checklist verde E canal conectado
+- [x] Metas do piloto instrumentadas: `GET /metrics/pilot` (no-show ≤10% sobre decididos, ≥80% <60s, ≥20 agendamentos autônomos/mês — override em `settings.pilotGoals`; sem dado = `met: null`, nunca "meta batida")
+- [x] Testes: 8 unitários (gate de consentimento, parser CSV, gate de onboarding, contrato de alertas) + 6 de integração (exclusão LGPD ponta a ponta, gate no outbound worker, ativação, scorecard, /health) — 160 no total, tempestade verde
 
 ---
 
