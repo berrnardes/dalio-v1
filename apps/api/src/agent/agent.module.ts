@@ -6,6 +6,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { CatalogModule } from '../catalog/catalog.module';
+import { CampaignsModule } from '../campaigns/campaigns.module';
 import { MessagingDataModule } from '../conversations/messaging-data.module';
 import { TURN_HANDLER } from '../conversations/turn-handler';
 import { InboxEventsModule } from '../inbox/inbox-events.module';
@@ -22,6 +23,7 @@ import { UsageService } from './usage.service';
     SchedulingDataModule,
     RemindersModule,
     OutboundModule,
+    CampaignsModule,
     CatalogModule,
     InboxEventsModule,
   ],

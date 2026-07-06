@@ -41,4 +41,11 @@ export interface MetricsSummary {
    * are the agent bookings those same contacts made in the month.
    */
   afterHoursLeads: { count: number; convertedCount: number; cents: number };
+
+  /**
+   * Reactivation conversions (Phase 6): campaign recipients whose send led to
+   * a booking in the month (convertedAppointmentId). `cents` is the real sum
+   * of the booked services' prices — the exec doc's fourth loss, recovered.
+   */
+  reactivatedClients: { count: number; cents: number };
 }

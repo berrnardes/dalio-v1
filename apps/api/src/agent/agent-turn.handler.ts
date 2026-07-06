@@ -7,6 +7,7 @@ import { Inject, Injectable, Logger } from '@nestjs/common';
 import { AIMessage, HumanMessage } from '@langchain/core/messages';
 import type { BaseMessage } from '@langchain/core/messages';
 import type { OutboundIntent } from '@dalio/shared';
+import { CampaignAttributionService } from '../campaigns/campaign-attribution.service';
 import { ContactsRepository } from '../conversations/contacts.repository';
 import { ConversationsRepository } from '../conversations/conversations.repository';
 import type { MessageRow } from '../conversations/conversations.repository';
@@ -46,6 +47,7 @@ export class AgentTurnHandler implements TurnHandler {
     private readonly lifecycle: AppointmentLifecycleService,
     private readonly outbox: OutboxService,
     private readonly inboxEvents: InboxEventsService,
+    private readonly campaignAttribution: CampaignAttributionService,
   ) {}
 
   async handleTurn(input: TurnInput): Promise<void> {
@@ -58,6 +60,14 @@ export class AgentTurnHandler implements TurnHandler {
 
     const contact = await this.contactsRepo.getById(conversation.contactId);
     if (!contact) return;
+
+    // Campaign attribution (Phase 6): any inbound from a recently-messaged
+    // recipient counts as the reply — cheap no-op otherwise, and the flag
+    // clears so the agent treats the thread as a normal conversation.
+    await this.campaignAttribution.recordReply(contact.id);
+    if (conversation.flowContext?.kind === 'awaiting_campaign_reply') {
+      await this.conversationsRepo.setFlowContext(conversation.id, { kind: 'none' });
+    }
 
     const burstText = input.messages.map((m) => m.text).join('\n');
 

@@ -110,6 +110,26 @@ export class MetricsRepository extends TenantScopedRepository {
   }
 
   /**
+   * Hero metric #5 (Phase 6) — reactivated clients: campaign sends that
+   * converted into an appointment CREATED in the month, valued at the booked
+   * service's price. Excludes cancelled/no-show like every captured-revenue
+   * figure. The attribution write happens in the appointment lifecycle; this
+   * only reads the links.
+   */
+  async reactivatedClients(range: MonthRange): Promise<{ count: number; cents: number }> {
+    const rows = await this.db.execute(sql`
+      select count(*)::int as count, coalesce(sum(s.price_cents), 0)::int as cents
+      from campaign_recipients cr
+      join appointments a on a.id = cr.converted_appointment_id
+      join services s on s.id = a.service_id
+      where cr.clinic_id = ${this.clinicId}
+        and a.created_at >= ${range.start.toISOString()}::timestamptz and a.created_at < ${range.end.toISOString()}::timestamptz
+        and a.status not in ('cancelled', 'no_show')
+    `);
+    return rows[0] as { count: number; cents: number };
+  }
+
+  /**
    * Conversion leg of hero metric #4: agent bookings in the month made by the
    * given contacts (the ones whose lead arrived out of hours). Valued like
    * agentBookings — captured, not attempted.

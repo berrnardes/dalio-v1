@@ -7,6 +7,7 @@ import { Logger } from '@nestjs/common';
 import type { Job } from 'bullmq';
 import { QUEUES } from '@dalio/shared';
 import type { SessionHealthJob } from '@dalio/shared';
+import { NumbersService } from '../numbers/numbers.service';
 import { ChannelsRepository } from './channels.repository';
 import { WahaApiClient } from './providers/waha-api.client';
 
@@ -26,6 +27,7 @@ export class SessionHealthWorker extends WorkerHost {
   constructor(
     private readonly channelsRepo: ChannelsRepository,
     private readonly wahaApi: WahaApiClient,
+    private readonly numbers: NumbersService,
   ) {
     super();
   }
@@ -47,6 +49,10 @@ export class SessionHealthWorker extends WorkerHost {
       // takes over (company SIMs — pairing is our job, not the clinic's).
       this.logger.error(`Session FAILED for channel ${channelExternalId} — restarting`);
       const channel = await this.channelsRepo.findByExternalId(provider, channelExternalId);
+      // Ban-detection signal (Phase 6): a failed session hits the number's
+      // quality score hard; repeated failures degrade it and page ops (and a
+      // failing CANARY pauses all campaigns — see NumbersService).
+      if (channel) await this.numbers.recordSessionFailure(channel.id).catch(() => undefined);
       try {
         await this.wahaApi.post(
           `/api/sessions/${channelExternalId}/restart`,

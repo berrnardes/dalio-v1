@@ -8,6 +8,7 @@
 // SchedulingModule) — the low-level calendar providers extracted for exactly
 // this, mirroring MessagingDataModule.
 import { Module } from '@nestjs/common';
+import { CampaignsModule } from '../campaigns/campaigns.module';
 import { CatalogModule } from '../catalog/catalog.module';
 import { ChannelsModule } from '../channels/channels.module';
 import { MessagingDataModule } from '../conversations/messaging-data.module';
@@ -31,6 +32,8 @@ import { WaitlistService } from './waitlist.service';
     OutboundModule,
     MessagingDataModule,
     ChannelsModule,
+    // Booking → campaign conversion attribution (Phase 6).
+    CampaignsModule,
   ],
   controllers: [AppointmentsController],
   providers: [

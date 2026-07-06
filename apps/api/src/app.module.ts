@@ -5,6 +5,7 @@ import { ConfigModule } from '@nestjs/config';
 import { AuthGuard } from '@thallesp/nestjs-better-auth';
 import { AgentModule } from './agent/agent.module';
 import { AuthModule } from './auth/auth.module';
+import { CampaignsModule } from './campaigns/campaigns.module';
 import { CatalogModule } from './catalog/catalog.module';
 import { ChannelsModule } from './channels/channels.module';
 import { validateEnv } from './config/env';
@@ -13,6 +14,7 @@ import { DbModule } from './db/db.module';
 import { HealthController } from './health/health.controller';
 import { InboxModule } from './inbox/inbox.module';
 import { MetricsModule } from './metrics/metrics.module';
+import { NumbersModule } from './numbers/numbers.module';
 import { OutboundModule } from './outbound/outbound.module';
 import { QueuesModule } from './queues/queues.module';
 import { RemindersModule } from './reminders/reminders.module';
@@ -42,6 +44,8 @@ import { TranscriptionModule } from './transcription/transcription.module';
     SchedulingModule,
     RemindersModule,
     MetricsModule,
+    NumbersModule,
+    CampaignsModule,
     AgentModule,
   ],
   controllers: [HealthController],

@@ -113,6 +113,10 @@ export const numbers = pgTable('numbers', {
   activatedAt: ts('activated_at'),
   bannedAt: ts('banned_at'),
   replacedById: uuid('replaced_by_id').references((): AnyPgColumn => numbers.id),
+  /** Canary numbers mimic fleet behavior as a leading indicator of Meta
+   *  detection waves (DOCUMENTO-EXECUTIVO §3.2) — one going down pauses all
+   *  running campaigns before the wave reaches revenue numbers. */
+  isCanary: boolean('is_canary').default(false).notNull(),
 });
 
 export const channels = pgTable(
@@ -309,12 +313,21 @@ export const campaigns = pgTable('campaigns', {
 
 export const campaignRecipients = pgTable('campaign_recipients', {
   id: id(),
+  // clinic_id added in Phase 6 (iron rule #1 — was scoped only through the
+  // campaign join, which made recipient queries the one place a tenant filter
+  // could be forgotten).
+  clinicId: uuid('clinic_id')
+    .references(() => clinics.id)
+    .notNull(),
   campaignId: uuid('campaign_id')
     .references(() => campaigns.id)
     .notNull(),
   contactId: uuid('contact_id')
     .references(() => contacts.id)
     .notNull(),
+  /** The overdue service that put this contact in the segment — feeds the
+   *  template variables ("já faz 3 semanas do seu {{servico}}"). */
+  serviceId: uuid('service_id').references(() => services.id),
   scheduledFor: ts('scheduled_for'),
   sentAt: ts('sent_at'),
   suppressedReason: text('suppressed_reason'),

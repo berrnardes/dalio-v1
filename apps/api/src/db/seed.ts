@@ -160,6 +160,17 @@ async function main() {
     },
     {
       clinicId: clinic!.id,
+      key: 'campaign_reactivation',
+      category: 'marketing',
+      variants: [
+        'Oi {{nome}}! Já faz um tempinho desde seu último {{servico}} — que tal agendar o próximo? Se quiser, é só me dizer o melhor dia. 💚',
+        '{{nome}}, sentimos sua falta por aqui! Seu {{servico}} costuma pedir manutenção — quer que eu veja uns horários pra você?',
+        'Olá {{nome}}! Passando pra lembrar que já está na época do seu {{servico}}. Posso sugerir uns horários?',
+      ],
+      variables: ['nome', 'servico'],
+    },
+    {
+      clinicId: clinic!.id,
       key: 'waitlist_slot_open',
       category: 'utility',
       variants: [

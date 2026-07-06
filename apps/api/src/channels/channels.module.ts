@@ -3,6 +3,7 @@
 // else speaks canonical events and intents.
 import { Module } from '@nestjs/common';
 import type { Provider as ProviderName } from '@dalio/shared';
+import { NumbersModule } from '../numbers/numbers.module';
 import { ChannelsRepository } from './channels.repository';
 import { CloudApiProvider } from './providers/cloud-api.provider';
 import type { MessagingProvider, ProviderRegistry } from './providers/messaging-provider';
@@ -14,6 +15,8 @@ import { WahaWebhookController } from './waha-webhook.controller';
 import { WebhookIngestService } from './webhook-ingest.service';
 
 @Module({
+  // NumbersModule: session-health feeds the number quality score (Phase 6).
+  imports: [NumbersModule],
   controllers: [WahaWebhookController],
   providers: [
     WebhookIngestService,

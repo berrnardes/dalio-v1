@@ -5,6 +5,7 @@ import { Module } from '@nestjs/common';
 import { ChannelsModule } from '../channels/channels.module';
 import { MessagingDataModule } from '../conversations/messaging-data.module';
 import { InboxEventsModule } from '../inbox/inbox-events.module';
+import { NumbersModule } from '../numbers/numbers.module';
 import { CanContactService } from './can-contact.service';
 import { OutboundWorker } from './outbound.worker';
 import { OutboxService } from './outbox.service';
@@ -14,7 +15,7 @@ import { TemplatesRepository } from './templates.repository';
 @Module({
   // MessagingDataModule (not ConversationsModule): keeps the module graph
   // acyclic now that ConversationsModule imports AgentModule → OutboundModule.
-  imports: [ChannelsModule, MessagingDataModule, InboxEventsModule],
+  imports: [ChannelsModule, MessagingDataModule, InboxEventsModule, NumbersModule],
   providers: [
     OutboxService,
     OutboundWorker,

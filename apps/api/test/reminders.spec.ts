@@ -118,6 +118,7 @@ describe('AppointmentLifecycleService.cancel', () => {
       servicesRepo as never,
       remindersRepo as never,
       waitlist as never,
+      { recordConversion: vi.fn().mockResolvedValue(undefined) } as never,
     );
     return { svc, appointmentsRepo, remindersRepo, waitlist };
   }

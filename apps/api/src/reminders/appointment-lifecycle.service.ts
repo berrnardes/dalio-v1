@@ -14,6 +14,7 @@
 // appointmentsRepo.cancel() elsewhere would silently skip reminders/backfill.
 import { Injectable } from '@nestjs/common';
 import { addMinutes } from 'date-fns';
+import { CampaignAttributionService } from '../campaigns/campaign-attribution.service';
 import { ServicesRepository } from '../catalog/services.repository';
 import { AppointmentsRepository } from '../scheduling/appointments.repository';
 import { AvailabilityService } from '../scheduling/availability.service';
@@ -37,6 +38,7 @@ export class AppointmentLifecycleService {
     private readonly servicesRepo: ServicesRepository,
     private readonly remindersRepo: RemindersRepository,
     private readonly waitlist: WaitlistService,
+    private readonly campaignAttribution: CampaignAttributionService,
   ) {}
 
   /**
@@ -62,6 +64,9 @@ export class AppointmentLifecycleService {
       startsAt,
       offsets: clinic.settings?.reminderOffsets,
     });
+    // Campaign conversion (Phase 6): booking through the single write path is
+    // what lets attribution be complete — best-effort, never fails the booking.
+    await this.campaignAttribution.recordConversion(params.contactId, result.appointmentId);
     return result;
   }
 

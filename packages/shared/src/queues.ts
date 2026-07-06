@@ -18,6 +18,10 @@ export const QUEUES = {
   SESSION_HEALTH: 'session-health',
   /** 1/min scan of due reminders → confirmation/reminder sends (Phase 4). */
   REMINDERS_SCAN: 'reminders-scan',
+  /** 1/min scan of running campaigns → dripped reactivation sends (Phase 6). */
+  CAMPAIGN_DISPATCH: 'campaign-dispatch',
+  /** Periodic warm-up tick: advances warming numbers' quotas along the ramp (Phase 6). */
+  NUMBER_WARMUP: 'number-warmup',
 } as const;
 export type QueueName = (typeof QUEUES)[keyof typeof QUEUES];
 
@@ -52,6 +56,19 @@ export interface TranscriptionJob {
  * payload; the DB is the schedule.
  */
 export type ReminderScanJob = Record<string, never>;
+
+/**
+ * Campaign dispatcher tick (Phase 6) — same scan-pattern as reminders: the
+ * 1/min heartbeat re-reads running campaigns and their pending recipients, so
+ * pause/opt-out/new-appointment between ticks always win and the drip pace
+ * (dailyCap spread across the send window) is enforced by data, not by
+ * delayed-job scheduling luck.
+ */
+export type CampaignDispatchJob = Record<string, never>;
+
+/** Warm-up tick — idempotent: quotas derive from warmupStartedAt age, so a
+ *  re-run or missed tick converges to the same numbers. */
+export type NumberWarmupJob = Record<string, never>;
 
 export interface SessionHealthJob {
   provider: Provider;

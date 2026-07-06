@@ -121,6 +121,10 @@ function makeHandler(opts: {
         return Promise.resolve();
       },
     } as unknown as InboxEventsService,
+    {
+      recordReply: () => Promise.resolve(),
+      recordConversion: () => Promise.resolve(),
+    } as unknown as import('../src/campaigns/campaign-attribution.service').CampaignAttributionService,
   );
 
   return { handler, calls, models };

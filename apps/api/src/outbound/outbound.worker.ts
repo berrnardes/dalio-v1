@@ -9,7 +9,7 @@ import { eq } from 'drizzle-orm';
 import type IORedis from 'ioredis';
 import { QUEUES } from '@dalio/shared';
 import type { OutboundIntent, OutboundJob, RatePolicy } from '@dalio/shared';
-import { channels } from '../db/schema';
+import { channels, numbers } from '../db/schema';
 import { DB } from '../db/db.module';
 import type { Db } from '../db/db.module';
 import type { ProviderRegistry } from '../channels/providers/messaging-provider';
@@ -18,6 +18,7 @@ import { renderChoiceAsText } from '../channels/providers/choice-parsing';
 import { ContactsRepository } from '../conversations/contacts.repository';
 import { ConversationsRepository } from '../conversations/conversations.repository';
 import { InboxEventsService } from '../inbox/inbox-events.service';
+import { NumbersService } from '../numbers/numbers.service';
 import { REDIS } from '../queues/queues.module';
 import { TenantContextService } from '../tenancy/tenant-context.service';
 import { CanContactService } from './can-contact.service';
@@ -52,6 +53,7 @@ export class OutboundWorker extends WorkerHost {
     private readonly templateRender: TemplateRenderService,
     private readonly inboxEvents: InboxEventsService,
     private readonly tenantContext: TenantContextService,
+    private readonly numbers: NumbersService,
   ) {
     super();
   }
@@ -114,12 +116,15 @@ export class OutboundWorker extends WorkerHost {
       }
 
       // Daily proactive cap (warm-up discipline). Conversational replies
-      // bypass the cap but still pace through the gap above.
+      // bypass the cap but still pace through the gap above. Pool-managed
+      // channels (Phase 6) are ALSO bounded by the number's own quota — a
+      // warming SIM's ramp wins over whatever the channel policy says.
       if (proactive) {
+        const maxPerDay = Math.min(policy.maxPerDay, channel.numberQuota ?? Infinity);
         const day = new Date().toISOString().slice(0, 10);
         const count = await this.redis.incr(`rate:day:{${channelId}}:${day}`);
         await this.redis.pexpire(`rate:day:{${channelId}}:${day}`, 25 * 60 * 60 * 1000);
-        if (count > policy.maxPerDay) {
+        if (count > maxPerDay) {
           await this.conversationsRepo.markMessageFailed(messageId, 'daily_cap_exceeded');
           this.logger.warn(`Daily cap hit on channel ${channelId} — proactive send dropped`);
           await this.notify(clinicId, conversationId, messageId);
@@ -161,11 +166,15 @@ export class OutboundWorker extends WorkerHost {
         );
         await this.conversationsRepo.touchLastOutbound(conversationId, new Date());
         await this.notify(clinicId, conversationId, messageId);
+        // Quality scoring (Phase 6): deliveries feed the number's score.
+        // Best-effort — scoring must never fail a send that already left.
+        await this.numbers.recordDeliverySuccess(channelId).catch(() => undefined);
       } catch (err) {
         // Persist the failure detail, then rethrow so BullMQ retries with
         // backoff; the final failed attempt stays queryable in the DB.
         await this.conversationsRepo.markMessageFailed(messageId, err);
         await this.notify(clinicId, conversationId, messageId);
+        await this.numbers.recordDeliveryFailure(channelId).catch(() => undefined);
         throw err;
       }
     });
@@ -192,8 +201,12 @@ export class OutboundWorker extends WorkerHost {
         externalId: channels.externalId,
         host: channels.host,
         ratePolicy: channels.ratePolicy,
+        // Pool-managed channels carry the number's live quota (iron rule #6:
+        // the ramp lives in numbers.daily_quota, written by the warm-up tick).
+        numberQuota: numbers.dailyQuota,
       })
       .from(channels)
+      .leftJoin(numbers, eq(numbers.id, channels.numberId))
       .where(eq(channels.id, channelId))
       .limit(1);
     return row ?? null;

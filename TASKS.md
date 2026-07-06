@@ -68,14 +68,15 @@ Regra: fases em ordem (sequenciadas por risco — ver DOCUMENTO-EXECUTIVO §7 e 
 - [x] Tela `/metrics` no dashboard: 4 cards-herói em R$ + seletor de mês + badge "estimativa"; header compartilhado com navegação Inbox↔Métricas
 - [x] Testes: 10 unitários (fronteiras de mês, classificador fora-do-horário, mediana) + 2 de integração (SQL real sobre mês semeado, mês vazio) — boot leve só com Postgres (motor é read-only; se precisar de fila, virou write path indevido)
 
-## Fase 6 — Módulo de números + reativação (por último, sobre infra provada)
+## Fase 6 — Módulo de números + reativação ✅ (2026-07-05)
 
-- [ ] Módulo `numbers`: máquina de estados, quotas por idade/score, pool de standby aquecido
-- [ ] Warm-up scheduler + números canário
-- [ ] Redirects `dominio.com/wa/<slug>` → número atual (nunca publicar número cru)
-- [ ] Runbook de banimento: detecção → substituição do pool → protocolo de retomada proativa
-- [ ] Campanhas: builder de segmento por `returnIntervalDays`, supressões (opt-out, appointment futuro, contato recente, conversa ativa), drip com cap diário, variação de copy
-- [ ] Conversão campanha → appointment (`convertedAppointmentId`) nas métricas
+- [x] Módulo `numbers`: máquina de estados com guards (banido nunca volta; substituto via `replacedById`), quota viva em `numbers.dailyQuota` aplicada no outbound worker (`min` com ratePolicy), score de qualidade alimentado por falhas de entrega/sessão (<0.5 → degraded + page), pool de standby aquecido (mais antigo primeiro)
+- [x] Warm-up scheduler (tick horário idempotente: quota = f(idade), 10+2/dia até 50; ≥21d → standby) + números canário (`isCanary`): canário caindo pausa TODAS as campanhas running da frota
+- [x] Redirects públicos `GET /wa/<slug>` → 302 `wa.me/<número ativo>` (404 genérico; ban swap cura links publicados sozinho)
+- [x] Runbook de banimento: `POST /numbers/:id/replace` — ban → standby mais aquecido promovido → canais reapontados em `provisioning` → retomada proativa via digest; detecção alimentada pelo session-health (falha de sessão = −0.2 no score)
+- [x] Campanhas: segmento por `returnIntervalDays` (por serviço, 1 nudge/contato pelo mais vencido), supressões GRAVADAS com precedência (opt-out → appointment futuro → conversa ativa 7d → contato recente 14d) + re-supressão no envio, drip 1/tick com cap diário espalhado pela janela (≤50/dia), variação de copy via variantes de template, resposta cai no mesmo agente
+- [x] Conversão campanha → appointment: `repliedAt` no turno + `convertedAppointmentId` no `lifecycle.book` (janela 30d) → métrica-herói "clientes reativados" em R$ no dashboard (5º card)
+- [x] Testes: 11 unitários (máquina de estados, rampa, score, drip) + 10 de integração (segmento+supressões, drip 1/tick, re-supressão, exaustão→done, atribuição via lifecycle, ban swap, canário kill-switch, warm-up, redirect 302/404) — 146 no total, tempestade verde
 
 ## Fase 7 — Endurecimento para o beta
 

@@ -23,10 +23,11 @@ export class MetricsService {
     const clinic = await this.clinicsRepo.getCurrent();
     const range = monthRangeUtc(month, clinic.timezone);
 
-    const [bookings, confirmed, leads] = await Promise.all([
+    const [bookings, confirmed, leads, reactivated] = await Promise.all([
       this.metricsRepo.agentBookings(range),
       this.metricsRepo.confirmedAfterReminder(range),
       this.metricsRepo.leadConversations(range),
+      this.metricsRepo.reactivatedClients(range),
     ]);
 
     // Recovered no-shows: of the chairs the cadence got confirmed, the
@@ -51,6 +52,7 @@ export class MetricsService {
       recoveredNoShows: { count: confirmed.count, estimatedCents, noShowRatePct },
       firstResponse: firstResponseStats(leads),
       afterHoursLeads: { count: afterHours.length, convertedCount: converted.count, cents: converted.cents },
+      reactivatedClients: reactivated,
     };
   }
 }

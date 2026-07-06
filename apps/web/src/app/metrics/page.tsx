@@ -9,7 +9,7 @@ import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { BotMessageSquare, CalendarCheck2, MoonStar, Zap } from 'lucide-react';
+import { BotMessageSquare, CalendarCheck2, HeartHandshake, MoonStar, Zap } from 'lucide-react';
 import type { MetricsSummary } from '@dalio/shared';
 import { api } from '@/lib/api';
 import { formatBRL, formatDuration } from '@/lib/format';
@@ -78,7 +78,7 @@ function Dashboard() {
 
       {isLoading || !data ? (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          {Array.from({ length: 4 }, (_, i) => (
+          {Array.from({ length: 5 }, (_, i) => (
             <Skeleton key={i} className="h-36 rounded-xl" />
           ))}
         </div>
@@ -90,7 +90,8 @@ function Dashboard() {
 }
 
 function HeroCards({ summary }: { summary: MetricsSummary }) {
-  const { autonomousBookings, recoveredNoShows, firstResponse, afterHoursLeads } = summary;
+  const { autonomousBookings, recoveredNoShows, firstResponse, afterHoursLeads, reactivatedClients } =
+    summary;
   return (
     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
       <HeroCard
@@ -121,6 +122,12 @@ function HeroCards({ summary }: { summary: MetricsSummary }) {
         title="Leads fora do horário"
         value={formatBRL(afterHoursLeads.cents)}
         detail={`${afterHoursLeads.count} ${plural(afterHoursLeads.count, 'lead atendido', 'leads atendidos')} com a clínica fechada · ${afterHoursLeads.convertedCount} ${plural(afterHoursLeads.convertedCount, 'virou agendamento', 'viraram agendamento')}`}
+      />
+      <HeroCard
+        icon={HeartHandshake}
+        title="Clientes reativados"
+        value={formatBRL(reactivatedClients.cents)}
+        detail={`${reactivatedClients.count} ${plural(reactivatedClients.count, 'cliente antigo voltou', 'clientes antigos voltaram')} a agendar após campanha de reativação`}
       />
     </div>
   );
